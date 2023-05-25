@@ -45,7 +45,7 @@ github:
         # Contexts are the names of checks that must pass.
         # See ./github/workflows/README.md for more documentation on this list.
         contexts:
-          - Maven Build
+          - GitHub Actions Demo
 
       required_pull_request_reviews:
         dismiss_stale_reviews: false
