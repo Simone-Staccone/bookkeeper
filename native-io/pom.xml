@@ -242,7 +242,7 @@
                 <optimize>full</optimize>
               </cpp>
               <linker>
-                <name>g++</name>
+                <name>gcc</name>
               </linker>
             </configuration>
           </plugin>
