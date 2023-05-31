@@ -215,6 +215,7 @@
   <!-- dependency definitions -->
   <dependencyManagement>
     <dependencies>
+
       <!-- provided dependencies -->
       <dependency>
         <groupId>com.github.spotbugs</groupId>
@@ -535,17 +536,17 @@
       </dependency>
 
       <dependency>
-         <!-- needed by ZooKeeper server tests utilities -->
+        <!-- needed by ZooKeeper server tests utilities -->
         <groupId>org.junit.jupiter</groupId>
         <artifactId>junit-jupiter-api</artifactId>
         <version>${junit5.version}</version>
       </dependency>
 
       <dependency>
-         <!-- needed by ZooKeeper server -->
-         <groupId>org.xerial.snappy</groupId>
-         <artifactId>snappy-java</artifactId>
-         <version>${snappy.version}</version>
+        <!-- needed by ZooKeeper server -->
+        <groupId>org.xerial.snappy</groupId>
+        <artifactId>snappy-java</artifactId>
+        <version>${snappy.version}</version>
       </dependency>
 
       <!-- curator dependencies -->
@@ -800,12 +801,13 @@
         <artifactId>rxjava</artifactId>
         <version>${rxjava.version}</version>
       </dependency>
-  
+
       <dependency>
         <groupId>com.carrotsearch</groupId>
         <artifactId>hppc</artifactId>
         <version>${hppc.version}</version>
       </dependency>
+
     </dependencies>
   </dependencyManagement>
 
@@ -907,7 +909,7 @@
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
-        <version>0.8.6</version>
+        <version>0.8.8</version>
         <executions>
           <execution>
             <id>default-prepare-agent</id>
@@ -974,7 +976,7 @@
             <compilerArg>-Xlint:unchecked</compilerArg>
             <!-- https://issues.apache.org/jira/browse/MCOMPILER-205 -->
             <compilerArg>-Xpkginfo:always</compilerArg>
-	      </compilerArgs>
+          </compilerArgs>
         </configuration>
       </plugin>
       <plugin>
