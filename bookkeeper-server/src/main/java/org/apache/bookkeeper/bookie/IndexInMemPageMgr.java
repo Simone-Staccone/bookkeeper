@@ -27,6 +27,7 @@ import static org.apache.bookkeeper.bookie.BookKeeperServerStats.LEDGER_CACHE_RE
 import static org.apache.bookkeeper.bookie.BookKeeperServerStats.NUM_INDEX_PAGES;
 
 // CHECKSTYLE.OFF: IllegalImport
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import io.netty.util.internal.PlatformDependent;
 import java.io.IOException;
