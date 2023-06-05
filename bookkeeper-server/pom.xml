@@ -33,6 +33,12 @@
       <scope>test</scope>
     </dependency>
     <dependency>
+      <groupId>org.pitest</groupId>
+      <artifactId>pitest-maven</artifactId>
+      <version>1.10.3</version>
+      <type>maven-plugin</type>
+    </dependency>
+    <dependency>
       <groupId>org.apache.bookkeeper</groupId>
       <artifactId>bookkeeper-common</artifactId>
       <version>${project.parent.version}</version>
@@ -331,7 +337,7 @@
         <dependency>
           <groupId>br.usp.each.saeg</groupId>
           <artifactId>ba-dua-cli</artifactId>
-          <version>${ba-dua.version}</version>
+          <version>0.8.0</version>
         </dependency>
       </dependencies>
 
@@ -449,6 +455,54 @@
       </build>
     </profile>
 
+    <profile>
+      <id>Mutation-Testing</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <properties>
+        <withHistory>true</withHistory>
+        <pitest.version>1.11.5</pitest.version>
+      </properties>
+
+
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.pitest</groupId>
+            <artifactId>pitest-maven</artifactId>
+            <version>1.10.3</version>
+            <dependencies>
+              <dependency>
+                <groupId>org.pitest</groupId>
+                <artifactId>pitest-junit5-plugin</artifactId>
+                <version>1.1.1</version>
+              </dependency>
+            </dependencies>
+            <configuration>
+              <targetClasses>
+                <param>org.apache.bookkeeper.bookie.storage.ldb.DbLedgerStorage</param>
+              </targetClasses>
+              <targetTests>
+                <param>org.apache.bookkeeper.bookie.storage.ldb.DbLedgerStorage</param>
+              </targetTests>
+              <avoidCallsTo>
+                <avoidCallsTo>org.slf4j</avoidCallsTo>
+              </avoidCallsTo>
+            </configuration>
+            <executions>
+              <execution>
+                <id>Generate PIT report</id>
+                <phase>test-compile</phase>
+                <goals>
+                  <goal>mutationCoverage</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
 
 
   </profiles>
