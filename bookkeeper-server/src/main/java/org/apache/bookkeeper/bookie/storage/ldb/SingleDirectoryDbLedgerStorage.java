@@ -561,7 +561,8 @@ public class SingleDirectoryDbLedgerStorage implements CompactableLedgerStorage 
         }
     }
 
-    private ByteBuf doGetEntry(long ledgerId, long entryId) throws IOException, BookieException {
+    @VisibleForTesting
+    ByteBuf doGetEntry(long ledgerId, long entryId) throws IOException, BookieException {
         if (log.isDebugEnabled()) {
             log.debug("Get Entry: {}@{}", ledgerId, entryId);
         }
