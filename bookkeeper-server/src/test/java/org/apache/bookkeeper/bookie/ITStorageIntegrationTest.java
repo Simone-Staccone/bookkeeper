@@ -3,6 +3,7 @@ package org.apache.bookkeeper.bookie;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
+import org.apache.bookkeeper.bookie.*;
 import org.apache.bookkeeper.bookie.storage.EntryLogger;
 import org.apache.bookkeeper.bookie.storage.ldb.DbLedgerStorage;
 import org.apache.bookkeeper.bookie.storage.ldb.SingleDirectoryDbLedgerStorage;
@@ -12,7 +13,8 @@ import org.apache.bookkeeper.stats.Counter;
 import org.apache.bookkeeper.stats.OpStatsLogger;
 import org.apache.bookkeeper.stats.StatsLogger;
 import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assertions;
 import org.mockito.Mockito;
 
@@ -25,7 +27,7 @@ import java.util.List;
 
 import static org.mockito.Mockito.*;
 
-public class ITStorageIntegration {
+public class ITStorageIntegrationTest {
     private DbLedgerStorage dbLedgerStorage;
     private SingleDirectoryDbLedgerStorage singleDirectoryDbLedgerStorage;
     private LedgerDescriptorImplTest ledgerDescriptorImplTest;
@@ -33,7 +35,7 @@ public class ITStorageIntegration {
     private final int BUFF_SIZE = 256;
 
 
-    @Before
+    @BeforeEach
     public void setUp() throws IOException {
         ServerConfiguration serverConfiguration = Mockito.mock(ServerConfiguration.class);
         LedgerManager ledgerManager = Mockito.mock(LedgerManager.class);

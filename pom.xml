@@ -211,7 +211,7 @@
     <forkCount.variable>1</forkCount.variable>
     <servlet-api.version>4.0.0</servlet-api.version>
     <rxjava.version>3.0.1</rxjava.version>
-    <maven-failsafe-plugin.version>3.0.0-M6</maven-failsafe-plugin.version>
+    <maven-failsafe-plugin.version>3.1.0</maven-failsafe-plugin.version>
     <awaitility.version>4.0.3</awaitility.version>
   </properties>
 
