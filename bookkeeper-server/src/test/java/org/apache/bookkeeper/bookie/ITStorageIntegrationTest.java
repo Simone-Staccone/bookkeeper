@@ -50,8 +50,8 @@ public class ITStorageIntegrationTest {
 
         String metaDataString = File.separator + "path" + File.separator + "to" + File.separator + "ledger" + File.separator + "current";
         String indexString = File.separator + "path" + File.separator + "to" + File.separator + "ledger" + File.separator + "current";
-        File metaDataFile = new File(metaDataString);
-        File indexFile = new File(indexString);
+        File metaDataFile = new File(metaDataString + File.separator);
+        File indexFile = new File(indexString + File.separator);
         String[] metaDataStrings = {metaDataString};
         String[] indexStrings = {indexString};
         metaDataFile.mkdir();

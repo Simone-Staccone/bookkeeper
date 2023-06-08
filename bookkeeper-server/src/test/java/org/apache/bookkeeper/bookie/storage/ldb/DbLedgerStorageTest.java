@@ -32,7 +32,9 @@ import org.apache.bookkeeper.stats.NullStatsLogger;
 import org.apache.bookkeeper.test.TestStatsProvider;
 import org.apache.bookkeeper.util.DiskChecker;
 import org.junit.After;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -59,19 +61,10 @@ public class DbLedgerStorageTest {
     protected File tmpDir;
     protected LedgerDirsManager ledgerDirsManager;
     protected ServerConfiguration conf;
+    private static final int BUFF_SIZE = 128;
 
-    public DbLedgerStorageTest(){
-        try {
-            setup();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-
-
-
-    private void setup() throws Exception {
+    @BeforeEach
+    void setup() throws Exception {
         tmpDir = File.createTempFile("bkTest", ".dir");
         tmpDir.delete();
         tmpDir.mkdir();
@@ -97,7 +90,7 @@ public class DbLedgerStorageTest {
 
 
 
-    @After
+    @AfterEach
     public void teardown() throws Exception {
         storage.shutdown();
         tmpDir.delete();
@@ -107,7 +100,7 @@ public class DbLedgerStorageTest {
     public static Stream<Arguments> addEntryPartition() {
         return Stream.of(
                 Arguments.of(null, true),
-                Arguments.of(Unpooled.buffer(1024),false),
+                Arguments.of(Unpooled.buffer(BUFF_SIZE),false),
                 Arguments.of(Unpooled.buffer(0),false)
         );
     }
@@ -206,7 +199,7 @@ public class DbLedgerStorageTest {
     @MethodSource("getEntryPartition")
     public void getEntryTest(int ledgerId, int entryId ,boolean expectedException){
         try {
-            ByteBuf entry = Unpooled.buffer(1024);
+            ByteBuf entry = Unpooled.buffer(BUFF_SIZE);
             entry.writeLong(ledgerId); // ledger id
             entry.writeLong(entryId); // entry id
             entry.writeBytes("entry-example-2".getBytes());
@@ -356,7 +349,7 @@ public class DbLedgerStorageTest {
 
             thisStorage.start(); //Needed to start GC
 
-            ByteBuf entry = Unpooled.buffer(1024);
+            ByteBuf entry = Unpooled.buffer(BUFF_SIZE);
             entry.writeLong(ledgerId); // ledger id
             entry.writeLong(1); // entry id
             entry.writeBytes("entry-example-1".getBytes());
@@ -366,7 +359,7 @@ public class DbLedgerStorageTest {
 
             thisStorage.flush(); //Update checkpoint
 
-            ByteBuf entry2 = Unpooled.buffer(1024);
+            ByteBuf entry2 = Unpooled.buffer(BUFF_SIZE);
             entry2.writeLong(ledgerId); // ledger id
             entry2.writeLong(2); // entry id
             entry2.writeBytes("entry-example-2".getBytes());
@@ -567,7 +560,7 @@ public class DbLedgerStorageTest {
             storage.setMasterKey(ledgerId, masterKey);
 
 
-            ByteBuf entry = Unpooled.buffer(1024);
+            ByteBuf entry = Unpooled.buffer(BUFF_SIZE);
             entry.writeLong(ledgerId); // ledger id
 
             //Populate ledger
@@ -596,7 +589,7 @@ public class DbLedgerStorageTest {
     public void testBookieCompaction() throws Exception {
         storage.setMasterKey(4, "key".getBytes());
 
-        ByteBuf entry3 = Unpooled.buffer(1024);
+        ByteBuf entry3 = Unpooled.buffer(BUFF_SIZE);
         entry3.writeLong(4); // ledger id
         entry3.writeLong(3); // entry id
         entry3.writeBytes("entry-3".getBytes());
@@ -607,7 +600,7 @@ public class DbLedgerStorageTest {
         SingleDirectoryDbLedgerStorage singleDirStorage = ((DbLedgerStorage) storage).getLedgerStorageList().get(0);
         EntryLogger entryLogger = singleDirStorage.getEntryLogger();
         // Rewrite entry-3
-        ByteBuf newEntry3 = Unpooled.buffer(1024);
+        ByteBuf newEntry3 = Unpooled.buffer(BUFF_SIZE);
         newEntry3.writeLong(4); // ledger id
         newEntry3.writeLong(3); // entry id
         newEntry3.writeBytes("new-entry-3".getBytes());
@@ -646,7 +639,7 @@ public class DbLedgerStorageTest {
     public void doGetEntryTest(long ledgerId, long entryId, boolean exceptionExpected){
         try {
             storage.setMasterKey(ledgerId, "key".getBytes());
-            ByteBuf entry = Unpooled.buffer(1024);
+            ByteBuf entry = Unpooled.buffer(BUFF_SIZE);
             entry.writeLong(ledgerId); // ledger id
             entry.writeLong(entryId); // entry id
             entry.writeBytes("entry".getBytes());
@@ -664,8 +657,8 @@ public class DbLedgerStorageTest {
             Assertions.assertTrue(singleDirStorage.ledgerExists(ledgerId));
 
 //            //Enable flushing loop
-//            singleDirStorage.writeCacheBeingFlushed = new WriteCache(new UnpooledByteBufAllocator(true),1024);
-//            singleDirStorage.writeCache = new WriteCache(new UnpooledByteBufAllocator(true),1024);
+//            singleDirStorage.writeCacheBeingFlushed = new WriteCache(new UnpooledByteBufAllocator(true)BUFF_SIZE);
+//            singleDirStorage.writeCache = new WriteCache(new UnpooledByteBufAllocator(true)BUFF_SIZE);
 //
 
             ByteBuf storageEntry = singleDirStorage.doGetEntry(ledgerId,entryId);
