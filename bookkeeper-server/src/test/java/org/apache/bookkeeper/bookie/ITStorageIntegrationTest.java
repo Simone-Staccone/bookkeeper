@@ -48,10 +48,14 @@ public class ITStorageIntegrationTest {
         OpStatsLogger opStatsLogger = Mockito.mock(OpStatsLogger.class);
 
 
-        String metaDataString = File.separator + "path" + File.separator + "to" + File.separator + "ledger" + File.separator + "current";
-        String indexString = File.separator + "path" + File.separator + "to" + File.separator + "ledger" + File.separator + "current";
-        File metaDataFile = new File(metaDataString + File.separator);
-        File indexFile = new File(indexString + File.separator);
+        //String metaDataString = File.separator + "path" + File.separator + "to" + File.separator + "ledger" + File.separator + "current";
+        //String indexString = File.separator + "path" + File.separator + "to" + File.separator + "ledger" + File.separator + "current";
+        String metaDataString = "\\path\\to\\ledger\\current";
+        String indexString = "\\path\\to\\ledger\\current";
+
+
+        File metaDataFile = new File(metaDataString);
+        File indexFile = new File(indexString);
         String[] metaDataStrings = {metaDataString};
         String[] indexStrings = {indexString};
         metaDataFile.mkdir();
