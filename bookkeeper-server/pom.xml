@@ -484,12 +484,12 @@
             </dependencies>
             <configuration>
               <targetClasses>
-            <!--    <param>org.apache.bookkeeper.bookie.storage.ldb.DbLedgerStorage</param>
-                <param>org.apache.bookkeeper.bookie.storage.ldb.SingleDirectoryDbLedgerStorage</param> -->
+            <   <param>org.apache.bookkeeper.bookie.storage.ldb.DbLedgerStorage</param>
+                <param>org.apache.bookkeeper.bookie.storage.ldb.SingleDirectoryDbLedgerStorage</param>
                 <param>org.apache.bookkeeper.bookie.LedgerDescriptorImpl</param>
               </targetClasses>
               <targetTests>
-            <!--    <param>org.apache.bookkeeper.bookie.storage.ldb.DbLedgerStorageTest</param> -->
+                <param>org.apache.bookkeeper.bookie.storage.ldb.DbLedgerStorageTest</param>
                 <param>org.apache.bookkeeper.bookie.LedgerDescriptorImplTest</param>
               </targetTests>
               <avoidCallsTo>
