@@ -90,9 +90,9 @@ public class ITStorageIntegrationTest {
 
         when(serverConfiguration.getLedgerDirNames()).thenReturn(metaDataStrings);
         when(serverConfiguration.getIndexDirNames()).thenReturn(indexStrings);
-        when(serverConfiguration.getLedgerMetadataRocksdbConf()).thenReturn("/conf/ledger_metadata_rocksdb.conf");  //See documentation to get this string
-        when(serverConfiguration.getEntryLocationRocksdbConf()).thenReturn("/conf/entry_location_rocksdb.conf");  //See documentation to get this string
-        when(serverConfiguration.getDefaultRocksDBConf()).thenReturn("/conf/default_rocksdb.conf");  //See documentation to get this string
+        when(serverConfiguration.getLedgerMetadataRocksdbConf()).thenReturn(File.separator + "conf" + File.separator + "ledger_metadata_rocksdb.conf");  //See documentation to get this string
+        when(serverConfiguration.getEntryLocationRocksdbConf()).thenReturn(File.separator + "conf" + File.separator + "entry_location_rocksdb.conf");  //See documentation to get this string
+        when(serverConfiguration.getDefaultRocksDBConf()).thenReturn(File.separator + "conf" + File.separator + "default_rocksdb.conf");  //See documentation to get this string
 
 
         when(serverConfiguration.getString("dbStorage_rocksDB_checksum_type", "kxxHash")).thenReturn("kxxHash");
