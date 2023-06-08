@@ -32,7 +32,6 @@ import org.apache.bookkeeper.stats.NullStatsLogger;
 import org.apache.bookkeeper.test.TestStatsProvider;
 import org.apache.bookkeeper.util.DiskChecker;
 import org.junit.After;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -127,7 +126,6 @@ public class DbLedgerStorageTest {
             assertEquals(entry,storage.getEntry(4,1)); //Verify that just added entry is sotred in test DB
             Assertions.assertFalse(expectedException);
         } catch (Exception e) {
-            e.printStackTrace();
             Assertions.assertTrue(expectedException);
         }
     }
@@ -379,9 +377,6 @@ public class DbLedgerStorageTest {
 
             thisStorage.flush(); //Update checkpoint
 
-
-            System.out.println("Ledger id:" + ledgerId);
-
             // Read last entry in ledger
             DbLedgerStorage.readLedgerIndexEntries(ledgerId,serverConf,processor);
 
@@ -392,7 +387,7 @@ public class DbLedgerStorageTest {
 
     }
 
-    public static Stream<Arguments> addLedgerToIndexPartition(){
+    public static Stream<Arguments> addLedgerToIndexPartition() throws IOException, EmptyPagesException {
         return Stream.of(
                 Arguments.of(1, true, "key".getBytes(), getPages(), false),
                 Arguments.of(0, true, "key".getBytes(), getPages(), false),
@@ -464,19 +459,68 @@ public class DbLedgerStorageTest {
 
 
 
-    private static LedgerCache.PageEntriesIterable getPages() {
+    private static LedgerCache.PageEntriesIterable getPages() throws IOException {
+
+        File tmpDir = File.createTempFile("bkTest", ".dir");
+        tmpDir.delete();
+        tmpDir.mkdir();
+        File curDir = BookieImpl.getCurrentDirectory(tmpDir);
+        BookieImpl.checkDirectoryStructure(curDir);
+
+        InterleavedLedgerStorage interleavedStorage = new InterleavedLedgerStorage();
+        TestStatsProvider statsProvider = new TestStatsProvider();
+        final long numWrites = 2000;
+        final long entriesPerWrite = 2;
+        final long numOfLedgers = 5;
+
+        ServerConfiguration configuration = TestBKConfiguration.newServerConfiguration();
+        configuration.setLedgerDirNames(new String[]{tmpDir.toString()});
+        LedgerDirsManager ledgerDirsManager = new LedgerDirsManager(configuration, configuration.getLedgerDirs(),
+                new DiskChecker(configuration.getDiskUsageThreshold(), configuration.getDiskUsageWarnThreshold()));
+
+        InterleavedLedgerStorageTest.TestableDefaultEntryLogger entryLogger = new InterleavedLedgerStorageTest.TestableDefaultEntryLogger(
+                configuration, ledgerDirsManager, null, NullStatsLogger.INSTANCE);
+        interleavedStorage.initializeWithEntryLogger(
+                configuration, null, ledgerDirsManager, ledgerDirsManager,
+                entryLogger, statsProvider.getStatsLogger(BOOKIE_SCOPE));
+        interleavedStorage.setCheckpointer(Checkpointer.NULL);
+        interleavedStorage.setCheckpointSource(CheckpointSource.DEFAULT);
+
+        // Insert some ledger & entries in the interleaved storage
+        for (long entryId = 0; entryId < numWrites; entryId++) {
+            for (long ledgerId = 0; ledgerId < numOfLedgers; ledgerId++) {
+                if (entryId == 0) {
+                    interleavedStorage.setMasterKey(ledgerId, ("ledger-" + ledgerId).getBytes());
+                    interleavedStorage.setFenced(ledgerId);
+                }
+                ByteBuf entry = Unpooled.buffer(128);
+                entry.writeLong(ledgerId);
+                entry.writeLong(entryId * entriesPerWrite);
+                entry.writeBytes(("entry-" + entryId).getBytes());
+
+                interleavedStorage.addEntry(entry);
+            }
+        }
+        return interleavedStorage.getIndexEntries(0);
+
+    }
+
+
+    private static LedgerCache.PageEntriesIterable getEmptyPages() throws EmptyPagesException {
         try {
             File tmpDir = File.createTempFile("bkTest", ".dir");
             tmpDir.delete();
             tmpDir.mkdir();
             File curDir = BookieImpl.getCurrentDirectory(tmpDir);
             BookieImpl.checkDirectoryStructure(curDir);
+            final long numWrites = 0;
+            final long entriesPerWrite = 1;
+            final long numOfLedgers = 1;
+
 
             InterleavedLedgerStorage interleavedStorage = new InterleavedLedgerStorage();
             TestStatsProvider statsProvider = new TestStatsProvider();
-            final long numWrites = 2000;
-            final long entriesPerWrite = 2;
-            final long numOfLedgers = 5;
+
 
             ServerConfiguration configuration = TestBKConfiguration.newServerConfiguration();
             configuration.setLedgerDirNames(new String[]{tmpDir.toString()});
@@ -485,13 +529,13 @@ public class DbLedgerStorageTest {
 
             InterleavedLedgerStorageTest.TestableDefaultEntryLogger entryLogger = new InterleavedLedgerStorageTest.TestableDefaultEntryLogger(
                     configuration, ledgerDirsManager, null, NullStatsLogger.INSTANCE);
+
             interleavedStorage.initializeWithEntryLogger(
                     configuration, null, ledgerDirsManager, ledgerDirsManager,
                     entryLogger, statsProvider.getStatsLogger(BOOKIE_SCOPE));
             interleavedStorage.setCheckpointer(Checkpointer.NULL);
             interleavedStorage.setCheckpointSource(CheckpointSource.DEFAULT);
 
-            // Insert some ledger & entries in the interleaved storage
             for (long entryId = 0; entryId < numWrites; entryId++) {
                 for (long ledgerId = 0; ledgerId < numOfLedgers; ledgerId++) {
                     if (entryId == 0) {
@@ -506,53 +550,18 @@ public class DbLedgerStorageTest {
                     interleavedStorage.addEntry(entry);
                 }
             }
-            return interleavedStorage.getIndexEntries(0);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-
-    private static LedgerCache.PageEntriesIterable getEmptyPages() {
-        try {
-            File tmpDir = File.createTempFile("bkTest", ".dir");
-            tmpDir.delete();
-            tmpDir.mkdir();
-            File curDir = BookieImpl.getCurrentDirectory(tmpDir);
-            BookieImpl.checkDirectoryStructure(curDir);
-
-            InterleavedLedgerStorage interleavedStorage = new InterleavedLedgerStorage();
-            TestStatsProvider statsProvider = new TestStatsProvider();
-
-
-            ServerConfiguration configuration = TestBKConfiguration.newServerConfiguration();
-            configuration.setLedgerDirNames(new String[]{tmpDir.toString()});
-            LedgerDirsManager ledgerDirsManager = new LedgerDirsManager(configuration, configuration.getLedgerDirs(),
-                    new DiskChecker(configuration.getDiskUsageThreshold(), configuration.getDiskUsageWarnThreshold()));
-
-            InterleavedLedgerStorageTest.TestableDefaultEntryLogger entryLogger = new InterleavedLedgerStorageTest.TestableDefaultEntryLogger(
-                    configuration, ledgerDirsManager, null, NullStatsLogger.INSTANCE);
-
-            interleavedStorage.initializeWithEntryLogger(
-                    configuration, null, ledgerDirsManager, ledgerDirsManager,
-                    entryLogger, statsProvider.getStatsLogger(BOOKIE_SCOPE));
-            interleavedStorage.setCheckpointer(Checkpointer.NULL);
-            interleavedStorage.setCheckpointSource(CheckpointSource.DEFAULT);
-
 
             return interleavedStorage.getIndexEntries(0);
-        } catch (Exception e) {
-            e.printStackTrace();
+        }catch (IOException e){
+            return null; //Check how to set better
         }
-        return null;
     }
 
 
     @ParameterizedTest
     @MethodSource("addLedgerToIndexPartition") //master key is used for crypto reasons
     public void addLedgerToIndex(long ledgerId, boolean isFenced, byte[] masterKey,
-                                 LedgerCache.PageEntriesIterable pages ,boolean expectedException){
+                                 LedgerCache.PageEntriesIterable pages, boolean expectedException) {
         //Fanced means read only
         try {
             storage.setMasterKey(ledgerId, masterKey);
@@ -562,23 +571,23 @@ public class DbLedgerStorageTest {
             entry.writeLong(ledgerId); // ledger id
 
             //Populate ledger
-            for(int i = 0;i<100;i++){
+            for (int i = 0; i < 100; i++) {
                 entry.writeLong(i); // entry id
-                entry.writeBytes(("entry" + i ).getBytes());
+                entry.writeBytes(("entry" + i).getBytes());
                 storage.addEntry(entry);
             }
             storage.flush();
 
             // Simulate bookie compaction
             SingleDirectoryDbLedgerStorage singleDirStorage = ((DbLedgerStorage) storage).getLedgerStorageList().get(0);
-            singleDirStorage.addLedgerToIndex(ledgerId,isFenced,masterKey,pages);
+            singleDirStorage.addLedgerToIndex(ledgerId, isFenced, masterKey, pages);
             singleDirStorage.flush();
             Assertions.assertTrue(singleDirStorage.ledgerExists(ledgerId));
 
             Assertions.assertFalse(expectedException);
         } catch (Exception e) {
-            e.printStackTrace();
-            Assertions.assertTrue(expectedException);
+            if(!e.getClass().getName().equals(EmptyPagesException.class.toString()))
+                Assertions.assertTrue(expectedException);
         }
 
     }
@@ -666,7 +675,6 @@ public class DbLedgerStorageTest {
 
             Assertions.assertFalse(exceptionExpected);
         } catch (Exception e) {
-            e.printStackTrace();
             Assertions.assertTrue(exceptionExpected);
         }
 

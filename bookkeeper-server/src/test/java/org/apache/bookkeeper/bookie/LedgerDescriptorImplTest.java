@@ -159,7 +159,6 @@ public class LedgerDescriptorImplTest{
             ledgerDescriptor.isFenced(); //Check fenced to trigger exceptions on ledger descriptor
             Assertions.assertFalse(expectedException);
         } catch (Exception e) {
-            e.printStackTrace();
             Assertions.assertTrue(expectedException);
         }
 

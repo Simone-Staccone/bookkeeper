@@ -293,6 +293,12 @@
           </properties>
         </configuration>
       </plugin>
+      <!-- Run Integration Tests -->
+<!--      <plugin>-->
+<!--        <groupId>org.apache.maven.plugins</groupId>-->
+<!--        <artifactId>maven-failsafe-plugin</artifactId>-->
+<!--        <version>${maven-failsafe-plugin.version}</version>-->
+<!--      </plugin>-->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
@@ -484,7 +490,7 @@
             </dependencies>
             <configuration>
               <targetClasses>
-            <   <param>org.apache.bookkeeper.bookie.storage.ldb.DbLedgerStorage</param>
+               <param>org.apache.bookkeeper.bookie.storage.ldb.DbLedgerStorage</param>
                 <param>org.apache.bookkeeper.bookie.storage.ldb.SingleDirectoryDbLedgerStorage</param>
                 <param>org.apache.bookkeeper.bookie.LedgerDescriptorImpl</param>
               </targetClasses>
