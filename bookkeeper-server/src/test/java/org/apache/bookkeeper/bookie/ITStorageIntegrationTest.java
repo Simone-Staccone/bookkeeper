@@ -12,7 +12,6 @@ import org.apache.bookkeeper.meta.LedgerManager;
 import org.apache.bookkeeper.stats.Counter;
 import org.apache.bookkeeper.stats.OpStatsLogger;
 import org.apache.bookkeeper.stats.StatsLogger;
-import org.junit.Before;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assertions;
@@ -48,10 +47,8 @@ public class ITStorageIntegrationTest {
         OpStatsLogger opStatsLogger = Mockito.mock(OpStatsLogger.class);
 
 
-        //String metaDataString = File.separator + "path" + File.separator + "to" + File.separator + "ledger" + File.separator + "current";
-        //String indexString = File.separator + "path" + File.separator + "to" + File.separator + "ledger" + File.separator + "current";
-        String metaDataString = "\\path\\to\\ledger\\current";
-        String indexString = "\\path\\to\\ledger\\current";
+        String metaDataString = File.separator + "path" + File.separator + "to" + File.separator + "ledger" + File.separator + "current";
+        String indexString = File.separator + "path" + File.separator + "to" + File.separator + "ledger" + File.separator + "current";
 
 
         File metaDataFile = new File(metaDataString);
