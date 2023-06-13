@@ -336,7 +336,7 @@
       </activation>
       <properties>
         <!-- Use a stable version istead of SNAPSHOT one -->
-        <ba-dua.version>0.8.0</ba-dua.version>
+        <ba-dua.version>0.6.0</ba-dua.version>
         <argLine>-javaagent:target/dependency/ba-dua-agent-rt-${ba-dua.version}-all.jar -Doutput.file=target/badua.ser</argLine>
       </properties>
 
@@ -345,7 +345,7 @@
         <dependency>
           <groupId>br.usp.each.saeg</groupId>
           <artifactId>ba-dua-cli</artifactId>
-          <version>0.8.0</version>
+          <version>0.6.0</version>
         </dependency>
       </dependencies>
 

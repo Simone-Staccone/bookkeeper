@@ -26,7 +26,7 @@ import java.util.List;
 
 import static org.mockito.Mockito.*;
 
-public class ITStorageIntegrationTest {
+public class ITStorageIntegration {
     private DbLedgerStorage dbLedgerStorage;
     private SingleDirectoryDbLedgerStorage singleDirectoryDbLedgerStorage;
     private LedgerDescriptorImplTest ledgerDescriptorImplTest;
