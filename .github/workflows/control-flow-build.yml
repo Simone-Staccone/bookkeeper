@@ -31,8 +31,10 @@ jobs:
       uses: actions/setup-java@v1
       with:
         java-version: '1.8'
+    - name: Build full project
+      run: mvn clean install
     - name: Build with Maven
-      run: mvn clean verify --file pom.xml -pl :bookkeeper-server -P Control-Flow-Coverage
+      run: mvn verify --file pom.xml -pl :bookkeeper-server -P Control-Flow-Coverage
     - name: Upload report
       uses: actions/upload-artifact@v3
       with:
