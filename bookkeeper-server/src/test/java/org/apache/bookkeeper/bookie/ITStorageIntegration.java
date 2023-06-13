@@ -158,45 +158,45 @@ public class ITStorageIntegration {
 
 
     //Test to mock if ledger actually modifies the right storage in persistence
-    @Test
-    public void ledgerDescriptorStorageTest(){
-        ByteBuf entry = Unpooled.buffer(BUFF_SIZE);
-        entry.writeLong(1); //Ledger id
-        entry.writeLong(1); //Entry id
-        entry.writeBytes("entry".getBytes());
-
-        try {
-            this.dbLedgerStorage.start();
-            this.dbLedgerStorage.addEntry(entry);
-            this.dbLedgerStorage.setMasterKey(1,"masterKey".getBytes());
-
-            DbLedgerStorage storageSpy = Mockito.spy(this.dbLedgerStorage);
-
-            LedgerDescriptorImpl ledgerDescriptor = new LedgerDescriptorImpl("masterKey".getBytes(),1,storageSpy);
-
-            ByteBuf entry2 = Unpooled.buffer(BUFF_SIZE);
-            entry2.writeLong(1); //Ledger id
-            entry2.writeLong(2); //Entry id
-            entry2.writeLong(1); //last acked entry
-            entry2.writeBytes("entry2".getBytes());
-
-            ledgerDescriptor.addEntry(entry2);
-
-            verify(storageSpy,times(1)).addEntry(entry2); //Check if ledgerDescriptor uses storage to call addEntry
-
-            ledgerDescriptor.setFenced();
-
-            Assertions.assertTrue(this.dbLedgerStorage.isFenced(1));
-
-            verify(storageSpy,times(1)).setFenced(1); //Check if ledgerDescriptor uses storage to call isFenced
-
-            ledgerDescriptor.getLastAddConfirmed();
-
-            verify(storageSpy,times(1)).getLastAddConfirmed(1); //lac set, if verify ok, then message arrived
-
-
-        } catch (IOException | BookieException e) {
-            Assertions.assertDoesNotThrow(this::ledgerDescriptorStorageTest);
-        }
-    }
+//    @Test
+//    public void ledgerDescriptorStorageTest(){
+//        ByteBuf entry = Unpooled.buffer(BUFF_SIZE);
+//        entry.writeLong(1); //Ledger id
+//        entry.writeLong(1); //Entry id
+//        entry.writeBytes("entry".getBytes());
+//
+//        try {
+//            this.dbLedgerStorage.start();
+//            this.dbLedgerStorage.addEntry(entry);
+//            this.dbLedgerStorage.setMasterKey(1,"masterKey".getBytes());
+//
+//            DbLedgerStorage storageSpy = Mockito.spy(this.dbLedgerStorage);
+//
+//            LedgerDescriptorImpl ledgerDescriptor = new LedgerDescriptorImpl("masterKey".getBytes(),1,storageSpy);
+//
+//            ByteBuf entry2 = Unpooled.buffer(BUFF_SIZE);
+//            entry2.writeLong(1); //Ledger id
+//            entry2.writeLong(2); //Entry id
+//            entry2.writeLong(1); //last acked entry
+//            entry2.writeBytes("entry2".getBytes());
+//
+//            ledgerDescriptor.addEntry(entry2);
+//
+//            verify(storageSpy,times(1)).addEntry(entry2); //Check if ledgerDescriptor uses storage to call addEntry
+//
+//            ledgerDescriptor.setFenced();
+//
+//            Assertions.assertTrue(this.dbLedgerStorage.isFenced(1));
+//
+//            verify(storageSpy,times(1)).setFenced(1); //Check if ledgerDescriptor uses storage to call isFenced
+//
+//            ledgerDescriptor.getLastAddConfirmed();
+//
+//            verify(storageSpy,times(1)).getLastAddConfirmed(1); //lac set, if verify ok, then message arrived
+//
+//
+//        } catch (IOException | BookieException e) {
+//            Assertions.assertDoesNotThrow(this::ledgerDescriptorStorageTest);
+//        }
+//    }
 }

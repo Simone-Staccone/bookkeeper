@@ -23,7 +23,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [windows-latest]
+        os: [windows-latest, windows-latest, macos-latest]
 
     steps:
     - uses: actions/checkout@v3
@@ -34,7 +34,7 @@ jobs:
 
     - name: Build full project
       run: mvn clean install
-    - name: Build with Maven
+    - name: Build and analyze
       run: mvn verify --file pom.xml -pl :bookkeeper-server -P Control-Flow-Coverage
     - name: Upload report
       uses: actions/upload-artifact@v3
