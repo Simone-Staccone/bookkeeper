@@ -14,6 +14,9 @@ on:
   pull_request:
     branches: [ "master" ]
 
+env:
+  MAVEN_OPTS: -Dmaven.artifact.threads=256 -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -28,8 +31,6 @@ jobs:
       uses: actions/setup-java@v3
       with:
         java-version: '1.8'
-        distribution: 'temurin'
-        cache: maven
     - name: Build with Maven
       run: mvn clean verify -pl :bookkeeper-serve -P Control-Flow-Coverage
     - name: Upload report
