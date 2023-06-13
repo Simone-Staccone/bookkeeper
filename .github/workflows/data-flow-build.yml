@@ -23,7 +23,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [ windows-latest ,ubuntu-latest, macos-latest ]
+        os: [ windows-latest, macos-latest ]
 
     steps:
       - uses: actions/checkout@v2
@@ -44,6 +44,8 @@ jobs:
             git checkout tags/ba-dua-0.6.0 -b ba-dua-0.6.0
             mvn clean install
             cd ..
+      - name: Build full project
+        run: mvn clean install
       - name: 'Build with Maven'
         run: mvn -B verify --file pom.xml -pl :bookkeeper-server -P Data-Flow-Coverage
       - name: Upload report
