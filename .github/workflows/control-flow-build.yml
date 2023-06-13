@@ -6,7 +6,7 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
-name: Java CI with Maven
+name: Control Flow Report Generation
 
 on:
   push:
@@ -32,7 +32,7 @@ jobs:
       with:
         java-version: '1.8'
     - name: Build with Maven
-      run: mvn clean verify -pl :bookkeeper-server -P Control-Flow-Coverage
+      run: mvn clean verify --file pom.xml -pl :bookkeeper-server -P Control-Flow-Coverage
     - name: Upload report
       uses: actions/upload-artifact@v3
       with:
