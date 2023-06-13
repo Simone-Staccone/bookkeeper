@@ -31,7 +31,6 @@ import org.apache.bookkeeper.proto.BookieProtocol;
 import org.apache.bookkeeper.stats.NullStatsLogger;
 import org.apache.bookkeeper.test.TestStatsProvider;
 import org.apache.bookkeeper.util.DiskChecker;
-import org.junit.After;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -72,7 +71,7 @@ public class DbLedgerStorageTest {
         BookieImpl.checkDirectoryStructure(curDir);
 
         int gcWaitTime = 1000; //Time of garbage collector to delete entries that aren't associated anymore to an active ledger
-        conf = TestBKConfiguration.newServerConfiguration();
+        conf = TestBKConfiguration.newServerConfiguration(); //TestBKConfiguration is a class to get a server configuration instance
         conf.setGcWaitTime(gcWaitTime);
         conf.setLedgerStorageClass(DbLedgerStorage.class.getName()); //Set this class as the persistence one
         conf.setLedgerDirNames(new String[] { tmpDir.toString() });
@@ -82,6 +81,7 @@ public class DbLedgerStorageTest {
 
         ledgerDirsManager = bookie.getLedgerDirsManager();
         storage = (DbLedgerStorage) bookie.getLedgerStorage();
+
 
         storage.getLedgerStorageList().forEach(singleDirectoryDbLedgerStorage -> {
             assertTrue(singleDirectoryDbLedgerStorage.getEntryLogger() instanceof DefaultEntryLogger);
@@ -645,21 +645,12 @@ public class DbLedgerStorageTest {
             entry.writeBytes("entry".getBytes());
             storage.addEntry(entry);
 
-
-
             Assertions.assertEquals(storage.getEntry(ledgerId,BookieProtocol.LAST_ADD_CONFIRMED),storage.getLastEntry(ledgerId)); //Check if entry has been confirmed
 
             // Simulate bookie compaction
             SingleDirectoryDbLedgerStorage singleDirStorage = ((DbLedgerStorage) storage).getLedgerStorageList().get(0);
 
-
-
             Assertions.assertTrue(singleDirStorage.ledgerExists(ledgerId));
-
-//            //Enable flushing loop
-//            singleDirStorage.writeCacheBeingFlushed = new WriteCache(new UnpooledByteBufAllocator(true)BUFF_SIZE);
-//            singleDirStorage.writeCache = new WriteCache(new UnpooledByteBufAllocator(true)BUFF_SIZE);
-//
 
             ByteBuf storageEntry = singleDirStorage.doGetEntry(ledgerId,entryId);
 
