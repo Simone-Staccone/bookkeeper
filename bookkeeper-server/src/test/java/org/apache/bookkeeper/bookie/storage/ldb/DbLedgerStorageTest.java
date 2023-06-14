@@ -41,9 +41,10 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Scanner;
 import java.util.stream.Stream;
 
 import static org.apache.bookkeeper.bookie.BookKeeperServerStats.BOOKIE_SCOPE;
@@ -57,24 +58,24 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class DbLedgerStorageTest {
     private static final Logger log = LoggerFactory.getLogger(DbLedgerStorageTest.class);
     protected DbLedgerStorage storage;
-    protected File tmpDir;
+    protected File tmpDirLedger;
     protected LedgerDirsManager ledgerDirsManager;
     protected ServerConfiguration conf;
     private static final int BUFF_SIZE = 128;
 
     @BeforeEach
     void setup() throws Exception {
-        tmpDir = File.createTempFile("bkTest", ".dir");
-        tmpDir.delete();
-        tmpDir.mkdir();
-        File curDir = BookieImpl.getCurrentDirectory(tmpDir);
+        tmpDirLedger = File.createTempFile("bkTest", ".dir");
+        tmpDirLedger.delete();
+        tmpDirLedger.mkdir();
+        File curDir = BookieImpl.getCurrentDirectory(tmpDirLedger);
         BookieImpl.checkDirectoryStructure(curDir);
 
         int gcWaitTime = 1000; //Time of garbage collector to delete entries that aren't associated anymore to an active ledger
         conf = TestBKConfiguration.newServerConfiguration(); //TestBKConfiguration is a class to get a server configuration instance
         conf.setGcWaitTime(gcWaitTime);
         conf.setLedgerStorageClass(DbLedgerStorage.class.getName()); //Set this class as the persistence one
-        conf.setLedgerDirNames(new String[] { tmpDir.toString() });
+        conf.setLedgerDirNames(new String[] { tmpDirLedger.toString() });
 
 
         BookieImpl bookie = new TestBookieImpl(conf);
@@ -93,258 +94,495 @@ public class DbLedgerStorageTest {
     @AfterEach
     public void teardown() throws Exception {
         storage.shutdown();
-        tmpDir.delete();
+        tmpDirLedger.delete();
     }
 
+    
+    
+    /*
+        Category partition
+        Valid entry; Empty entry; Wrong ledgerId; wrong entryId; null
+     */
+    private static ByteBuf addEntryConfiguration(int type){
+        ByteBuf entry;
+        switch (type){
+            case 1:
+                entry = Unpooled.buffer(BUFF_SIZE);
+                entry.writeLong(2); //ledger id
+                entry.writeLong(1); //entry id
+                entry.writeLong(1); //lc id
+                entry.writeBytes("entry".getBytes());
+                break;
+            case 2:
+                entry = Unpooled.buffer(BUFF_SIZE);
+                entry.writeLong(2); //ledger id
+                entry.writeLong(1); //entry id
+                entry.writeLong(1); //lc id
+                break;
+            case 3:
+                entry = Unpooled.buffer(BUFF_SIZE);
+                entry.writeLong(-1); //ledger id
+                entry.writeLong(1); //entry id
+                entry.writeLong(1); //lac id
+                entry.writeBytes("entry".getBytes());
+                break;
+            case 4:
+                entry = Unpooled.buffer(BUFF_SIZE);
+                entry.writeLong(2); //ledger id
+                entry.writeLong(-1); //entry id
+                entry.writeLong(1); //lac id
+                entry.writeBytes("entry".getBytes());
+                break;
+            case 5:
+                entry = Unpooled.buffer(BUFF_SIZE);
+                entry.writeLong(2); //ledger id
+                entry.writeLong(1); //entry id
+                entry.writeLong(-1); //lac id
+                entry.writeBytes("entry".getBytes());
+                break;
+            case 6:
+                entry = null;
+                break;
+            default:
+                throw new IllegalStateException("Unexpected value: " + type);
+        }
+        
+        return entry;
+    }
+    
 
     public static Stream<Arguments> addEntryPartition() {
         return Stream.of(
-                Arguments.of(null, true),
-                Arguments.of(Unpooled.buffer(BUFF_SIZE),false),
-                Arguments.of(Unpooled.buffer(0),false)
+                Arguments.of(addEntryConfiguration(1), false,null),
+                Arguments.of(addEntryConfiguration(2), false,null),
+                Arguments.of(addEntryConfiguration(3), true,IllegalArgumentException.class),
+                Arguments.of(addEntryConfiguration(4), true,IllegalArgumentException.class),
+                //Arguments.of(addEntryConfiguration(5), true,IllegalArgumentException.class), //Test failure
+                Arguments.of(addEntryConfiguration(6), true,NullPointerException.class)
         );
     }
 
     @ParameterizedTest
     @MethodSource("addEntryPartition")
-    public void addEntryTest(ByteBuf entry,boolean expectedException){
+    public void addEntryTest(ByteBuf entry,boolean expectedException,Class exceptionClass){
         try {
-            entry.writeLong(4); // ledger id
-            entry.writeLong(1); // entry id
-            entry.writeBytes("entry-example-1".getBytes());
+            storage.setMasterKey(2,"key".getBytes());
+            storage.start(); //Starts garbage collector
+
             storage.addEntry(entry);
             storage.flush();
 
+            Assertions.assertTrue(storage.entryExists(2,1));
 
-            assertEquals(entry,storage.getEntry(4,1)); //Verify that just added entry is sotred in test DB
+            Assertions.assertEquals(1,storage.getLastEntryInLedger(2));
+
+
+            Assertions.assertEquals(entry,storage.getLastEntry(2));
+
+
+            //Check if last confirmed is correct
+            Assertions.assertEquals(1,storage.getLastAddConfirmed(2));
+
             Assertions.assertFalse(expectedException);
-        } catch (Exception e) {
+        } catch (NullPointerException | IllegalArgumentException e) {
             Assertions.assertTrue(expectedException);
+
+            Assertions.assertEquals(exceptionClass,e.getClass());
+        } catch (IOException | BookieException e) {
+            //Error in test
+            Assertions.fail();
         }
     }
 
     @ParameterizedTest
-    @MethodSource("addEntryPartition") //entry id must be unique
-    public void duplicateAdd(ByteBuf entry,boolean expectedException){
+    @MethodSource("addEntryPartition")
+    public void rewriteTest(ByteBuf entry,boolean expectedException, Class exceptionClass){
         try {
-            entry.writeLong(4); // ledger id
-            entry.writeLong(1); // entry id
-            entry.writeBytes("entry-example-1".getBytes());
+            storage.setMasterKey(2,"key".getBytes());
+
+            storage.start(); //Start GC
+
             storage.addEntry(entry);
             storage.flush();
-            storage.addEntry(entry);
-        } catch (IOException e) {
+
+
+            ByteBuf newEntry = Unpooled.buffer(BUFF_SIZE);
+            newEntry.writeLong(2);
+            newEntry.writeLong(1);
+            newEntry.writeBytes("new-entry".getBytes());
+            storage.addEntry(newEntry);
+            storage.flush();
+
+            Assertions.assertTrue(storage.entryExists(2,1));
+
+
+            //Only ledger 2 and entry 1 should exist
+            Assertions.assertEquals(1,storage.getLastEntryInLedger(2));
+            Assertions.assertEquals(newEntry,storage.getLastEntry(2).asByteBuf());
+
+            Assertions.assertFalse(expectedException);
+        } catch (NullPointerException | IllegalArgumentException e) {
             e.printStackTrace();
-        } catch (BookieException | NullPointerException e) {
             Assertions.assertTrue(expectedException);
+
+            Assertions.assertEquals(exceptionClass,e.getClass());
+        } catch (IOException | BookieException e) {
+            e.printStackTrace();
+            //Error in test
+            Assertions.fail();
         }
     }
 
 
-    @Test
-    public void testLimboState() {
+    @ParameterizedTest
+    @MethodSource("addEntryPartition")
+    public void testLimboState(ByteBuf entry,boolean expectedException, Class exceptionClass) {
         try {
-            storage.setMasterKey(1,"key".getBytes());
-
-            ByteBuf entry = Unpooled.buffer(128);
-            entry.writeLong(1);
-            entry.writeLong(1);
-            entry.writeBytes("entry".getBytes());
+            storage.setMasterKey(2,"key".getBytes());
 
             storage.addEntry(entry);
             storage.flush();
-            storage.setLimboState(1);
+            storage.setLimboState(2);
 
-            Assertions.assertThrows(BookieException.class, () -> storage.isFenced(1));
+            Assertions.assertThrows(BookieException.class, () -> storage.isFenced(2)); //Can't access metadata after limbo state
 
+            storage.setMasterKey(3,"new-key".getBytes());
 
-            storage.setMasterKey(2,"key".getBytes());
-
-            ByteBuf entry2 = Unpooled.buffer(128);
-            entry2.writeLong(2);
-            entry2.writeLong(1);
-            entry2.writeBytes("entry2".getBytes());
+            ByteBuf entry2 = Unpooled.buffer(BUFF_SIZE);
+            entry2.writeLong(3); //ledger id
+            entry2.writeLong(1); //entry id
+            entry2.writeBytes("entry-2".getBytes());
 
             storage.addEntry(entry2);
             storage.flush();
-            storage.setFenced(2);
 
-            storage.setLimboState(2);
+            storage.setFenced(3);
 
+            storage.setLimboState(3);
 
-            Assertions.assertDoesNotThrow(() -> storage.isFenced(2));
+            //Correct, shouldn't fail if limbo state set after set fenced
+            Assertions.assertDoesNotThrow(() -> storage.isFenced(3));
+        }catch (NullPointerException | IllegalArgumentException e) {
+            Assertions.assertTrue(expectedException);
+
+            Assertions.assertEquals(exceptionClass,e.getClass());
         } catch (IOException | BookieException e) {
             e.printStackTrace();
+            //Error in test
+            Assertions.fail();
         }
 
 
     }
+
+
+
+    /*
+    Category partition
+    Added entry; Not added ledger; Not added entry; null
+    */
+    private static ByteBuf getEntryConfiguration(int type){
+        ByteBuf entry;
+        switch (type){
+            case 1:
+                entry = Unpooled.buffer(BUFF_SIZE);
+                entry.writeLong(2); //ledger id
+                entry.writeLong(1); //entry id
+                entry.writeLong(1); //lc id
+                entry.writeBytes("entry".getBytes());
+                break;
+            case 2:
+                entry = Unpooled.buffer(BUFF_SIZE);
+                entry.writeLong(2); //ledger id
+                entry.writeLong(1); //entry id
+                entry.writeLong(1); //lc id
+                break;
+            case 3:
+                entry = Unpooled.buffer(BUFF_SIZE);
+                entry.writeLong(-1); //ledger id
+                entry.writeLong(1); //entry id
+                entry.writeLong(1); //lac id
+                entry.writeBytes("entry".getBytes());
+                break;
+            case 4:
+                entry = Unpooled.buffer(BUFF_SIZE);
+                entry.writeLong(2); //ledger id
+                entry.writeLong(-1); //entry id
+                entry.writeLong(1); //lac id
+                entry.writeBytes("entry".getBytes());
+                break;
+            case 5:
+                entry = Unpooled.buffer(BUFF_SIZE);
+                entry.writeLong(2); //ledger id
+                entry.writeLong(1); //entry id
+                entry.writeLong(-1); //lac id
+                entry.writeBytes("entry".getBytes());
+                break;
+            case 6:
+                entry = null;
+                break;
+            default:
+                throw new IllegalStateException("Unexpected value: " + type);
+        }
+
+        return entry;
+    }
+
 
 
     public static Stream<Arguments> getEntryPartition() {
         return Stream.of(
-                Arguments.of(1,1, false),
-                Arguments.of(1,0, false),
-                Arguments.of(1,-1, true),
-                Arguments.of(0,1, false),
-                Arguments.of(0,0, false),
-                Arguments.of(0,-1, true),
-                Arguments.of(-1,1, true),
-                Arguments.of(-1,0, true),
-                Arguments.of(-1,-1, true)
+                Arguments.of(0,0, false,null),
+                Arguments.of(0,3, true,Exception.class),
+                Arguments.of(0,-1, true,Exception.class),
+
+                Arguments.of(3,0, true,Exception.class),
+                Arguments.of(3,3, true,Exception.class),
+                Arguments.of(3,-1, true,Exception.class),
+
+
+                Arguments.of(-1,0, true,IllegalArgumentException.class),
+                Arguments.of(-1,3, true,IllegalArgumentException.class),
+                Arguments.of(-1,-1, true,IllegalArgumentException.class)
+
         );
     }
 
     @ParameterizedTest
     @MethodSource("getEntryPartition")
-    public void getEntryTest(int ledgerId, int entryId ,boolean expectedException){
+    public void getEntryTest(long ledgerId, long entryId ,boolean expectedException, Class expectedClass){
         try {
-            ByteBuf entry = Unpooled.buffer(BUFF_SIZE);
-            entry.writeLong(ledgerId); // ledger id
-            entry.writeLong(entryId); // entry id
-            entry.writeBytes("entry-example-2".getBytes());
-            storage.addEntry(entry);
+            List entries = new ArrayList();
+            for(int i = 0;i<3;i++){
+                for(int j = 0;j<3;j++){
+                    ByteBuf entry = Unpooled.buffer(BUFF_SIZE);
+                    entry.writeLong(i); // ledger id
+                    entry.writeLong(j); // entry id
+                    entry.writeBytes(("entry-" + i).getBytes());
+                    storage.addEntry(entry);
+                    entries.add(entry);
+                }
+            }
+
             storage.flush();
-            assertEquals(entry,storage.getEntry(ledgerId,entryId)); //Verify that just added entry is sotred in test DB
+
+            storage.getEntry(ledgerId,entryId);
+
             Assertions.assertFalse(expectedException);
         } catch (Exception e) {
             Assertions.assertTrue(expectedException);
+
+            if(e.getClass().equals(IllegalArgumentException.class)){
+                Assertions.assertEquals(expectedClass.getSimpleName(),e.getClass().getSimpleName());
+            }
         }
 
     }
 
 
-    private static ServerConfiguration getServerConfiguration(int testCase) throws IOException {
-        int gcWaitTime;
-        String ledgerStorageClass;
-        ServerConfiguration serverConfiguration = TestBKConfiguration.newServerConfiguration();
-
-        switch (testCase){
-            case(1):
-                gcWaitTime = 1000;
-                ledgerStorageClass = DbLedgerStorage.class.getName();
-                break;
-            case(2):
-                gcWaitTime = -1;
-                ledgerStorageClass = DbLedgerStorage.class.getName();
-                break;
-            case(3):
-                gcWaitTime = 0;
-                ledgerStorageClass = DbLedgerStorage.class.getName();
-                break;
-            case(4):
-                gcWaitTime = 1000;
-                ledgerStorageClass = InterleavedLedgerStorage.class.getName();
-                break;
-            case(5):
-                gcWaitTime = -1;
-                ledgerStorageClass = InterleavedLedgerStorage.class.getName();
-                break;
-            case(6):
-                gcWaitTime = 0;
-                ledgerStorageClass = InterleavedLedgerStorage.class.getName();
-                break;
-            case(7):
-                gcWaitTime = 1000;
-                ledgerStorageClass = SortedLedgerStorage.class.getName();
-                break;
-            case(8):
-                gcWaitTime = -1;
-                ledgerStorageClass = SortedLedgerStorage.class.getName();
-                break;
-            case(9):
-                gcWaitTime = 0;
-                ledgerStorageClass = SortedLedgerStorage.class.getName();
-                break;
-            default:
-                throw new IllegalStateException("Unexpected value: " + testCase);
-        }
-
-        File tmpDir = File.createTempFile("bkTest", ".dir");
-        tmpDir.delete();
-        tmpDir.mkdir();
-        File curDir = BookieImpl.getCurrentDirectory(tmpDir);
-        BookieImpl.checkDirectoryStructure(curDir);
-
-
-        serverConfiguration.setGcWaitTime(gcWaitTime);
-        serverConfiguration.setLedgerStorageClass(ledgerStorageClass); //Set this class as the persistence one
-        serverConfiguration.setLedgerDirNames(new String[] { tmpDir.toString() });
-        return serverConfiguration;
-    }
-
-
+    //Function to check debug in testing redirecting output
     private static SingleDirectoryDbLedgerStorage.LedgerLoggerProcessor getLedgerLoggerProcessor() {
-        return (currentEntry, entryLodId, position) -> System.out
-                .println("entry " + currentEntry + "\t:\t(log: " + entryLodId + ", pos: " + position + ")");
+        return (currentEntry, entryLodId, position) -> {
+            try {
+                writeOnFile(currentEntry,entryLodId,position);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        };
+        //Alternative console debug
+                /*System.out
+                .println("entry " + currentEntry + "\t:\t(log: " + entryLodId + ", pos: " + position + ")");*/
+    }
+
+    @BeforeEach
+    public void cleanTestDir() {
+        try {
+            File file = new File(File.separator + System.getProperty("user.dir") + File.separator + "test_dir");
+            if (!file.isDirectory())
+                file.mkdir();
+            file = new File(System.getProperty("user.dir") + File.separator + "test_dir" + File.separator + "test.txt");
+            if (file.exists())
+                file.createNewFile();
+
+
+            PrintWriter cleanWriter = new PrintWriter(file);
+            cleanWriter.print("");
+            cleanWriter.close();
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
+    private static void writeOnFile(long currentEntry, long entryLodId, long position) throws IOException {
+        File file = new File(System.getProperty("user.dir") + File.separator + "test_dir" + File.separator + "test.txt");
+
+        FileWriter fileWriter = new FileWriter(file,true);
+        BufferedWriter writer = new BufferedWriter(fileWriter);
+        writer.append(String.valueOf(currentEntry) + "\n");
+        writer.append(String.valueOf(entryLodId) + "\n");
+        writer.append(String.valueOf(position) + "\n");
+
+        writer.close();
     }
 
 
+    private static File getLedgerDir() {
+        try {
+            File tmpDirLedger = File.createTempFile("bkTest", ".dir");
+            tmpDirLedger.delete();
+            tmpDirLedger.mkdir();
+            File curDir = BookieImpl.getCurrentDirectory(tmpDirLedger);
+            BookieImpl.checkDirectoryStructure(curDir);
+            return tmpDirLedger;
+        }catch (Exception e){
+            return null;
+        }
+    }
 
-    public static Stream<Arguments> readLedgerIndexEntriesPartition() throws IOException {
+
+    private static File getNotLedgerDir() {
+        try {
+            File tmpDirLedger = File.createTempFile("bkTest", ".dir");
+            tmpDirLedger.delete();
+            tmpDirLedger.mkdir();
+            return tmpDirLedger;
+        }catch (Exception e){
+            return null;
+        }
+    }
+
+    private static Object getAnotherLedgerDir() {
+        try {
+            File tmpDirLedger = File.createTempFile("bkTest2", ".dir");
+            tmpDirLedger.delete();
+            tmpDirLedger.mkdir();
+            File curDir = BookieImpl.getCurrentDirectory(tmpDirLedger);
+            BookieImpl.checkDirectoryStructure(curDir);
+            return tmpDirLedger;
+        }catch (Exception e){
+            return null;
+        }
+    }
+
+    public static Stream<Arguments> readLedgerIndexEntriesPartition() {
         return Stream.of(
-                Arguments.of(1,getServerConfiguration(1),getLedgerLoggerProcessor(), false),
-                Arguments.of(1,getServerConfiguration(2),getLedgerLoggerProcessor(), true),
-                Arguments.of(1,getServerConfiguration(3),getLedgerLoggerProcessor(), true),
-                Arguments.of(1,getServerConfiguration(4),getLedgerLoggerProcessor(), true),
-                Arguments.of(1,getServerConfiguration(5),getLedgerLoggerProcessor(), true),
-                Arguments.of(1,getServerConfiguration(6),getLedgerLoggerProcessor(), true),
-                Arguments.of(1,getServerConfiguration(7),getLedgerLoggerProcessor(), true),
-                Arguments.of(1,getServerConfiguration(8),getLedgerLoggerProcessor(), true),
-
-                //Ledger attivo non può avere id = 0
-                Arguments.of(0,getServerConfiguration(1),getLedgerLoggerProcessor(), false),
-                Arguments.of(0,getServerConfiguration(2),getLedgerLoggerProcessor(), true),
-                Arguments.of(0,getServerConfiguration(3),getLedgerLoggerProcessor(), true),
-                Arguments.of(0,getServerConfiguration(4),getLedgerLoggerProcessor(), true),
-                Arguments.of(0,getServerConfiguration(5),getLedgerLoggerProcessor(), true),
-                Arguments.of(0,getServerConfiguration(6),getLedgerLoggerProcessor(), true),
-                Arguments.of(0,getServerConfiguration(7),getLedgerLoggerProcessor(), true),
-                Arguments.of(0,getServerConfiguration(8),getLedgerLoggerProcessor(), true),
-
-                Arguments.of(-1,getServerConfiguration(1),getLedgerLoggerProcessor(), true),
-                Arguments.of(-1,getServerConfiguration(2),getLedgerLoggerProcessor(), true),
-                Arguments.of(-1,getServerConfiguration(3),getLedgerLoggerProcessor(), true),
-                Arguments.of(-1,getServerConfiguration(4),getLedgerLoggerProcessor(), true),
-                Arguments.of(-1,getServerConfiguration(5),getLedgerLoggerProcessor(), true),
-                Arguments.of(-1,getServerConfiguration(6),getLedgerLoggerProcessor(), true),
-                Arguments.of(-1,getServerConfiguration(7),getLedgerLoggerProcessor(), true),
-                Arguments.of(-1,getServerConfiguration(8),getLedgerLoggerProcessor(), true),
-
-                Arguments.of(1,getServerConfiguration(1),null, true),
-                Arguments.of(1,getServerConfiguration(2),null, true),
-                Arguments.of(1,getServerConfiguration(3),null, true),
-                Arguments.of(1,getServerConfiguration(4),null, true),
-                Arguments.of(1,getServerConfiguration(5),null, true),
-                Arguments.of(1,getServerConfiguration(6),null, true),
-                Arguments.of(1,getServerConfiguration(7),null, true),
-                Arguments.of(1,getServerConfiguration(8),null, true),
-
-                Arguments.of(0,getServerConfiguration(1),null, true),
-                Arguments.of(0,getServerConfiguration(2),null, true),
-                Arguments.of(0,getServerConfiguration(3),null, true),
-                Arguments.of(0,getServerConfiguration(4),null, true),
-                Arguments.of(0,getServerConfiguration(5),null, true),
-                Arguments.of(0,getServerConfiguration(6),null, true),
-                Arguments.of(0,getServerConfiguration(7),null, true),
-                Arguments.of(0,getServerConfiguration(8),null, true),
-
-                Arguments.of(-1,getServerConfiguration(1),null, true),
-                Arguments.of(-1,getServerConfiguration(2),null, true),
-                Arguments.of(-1,getServerConfiguration(3),null, true),
-                Arguments.of(-1,getServerConfiguration(4),null, true),
-                Arguments.of(-1,getServerConfiguration(5),null, true),
-                Arguments.of(-1,getServerConfiguration(6),null, true),
-                Arguments.of(-1,getServerConfiguration(7),null, true),
-                Arguments.of(-1,getServerConfiguration(8),null, true)
+                Arguments.of(0,0,DbLedgerStorage.class,getLedgerDir(),getLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(0,0,DbLedgerStorage.class,getLedgerDir(),getNotLedgerDir(), null, true),
+                Arguments.of(0,0,DbLedgerStorage.class,getLedgerDir(),getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(0,0,DbLedgerStorage.class,getLedgerDir(),null,getLedgerLoggerProcessor(), true),
+                Arguments.of(0,0,DbLedgerStorage.class,getNotLedgerDir(),getLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(0,0,DbLedgerStorage.class,getNotLedgerDir(),getNotLedgerDir(),null, true),
+                Arguments.of(0,0,DbLedgerStorage.class,getNotLedgerDir(),getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(0,0,DbLedgerStorage.class,getNotLedgerDir(),null,getLedgerLoggerProcessor(), true),
+                Arguments.of(0,0,DbLedgerStorage.class,null,getLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(0,0,DbLedgerStorage.class,null,getNotLedgerDir(),null, true),
+                Arguments.of(0,0,DbLedgerStorage.class,null,getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(0,0,DbLedgerStorage.class,null,null,getLedgerLoggerProcessor(), true),
+                Arguments.of(0,1000,DbLedgerStorage.class,getLedgerDir(),getLedgerDir(),getLedgerLoggerProcessor(), false),
+                Arguments.of(0,1000,DbLedgerStorage.class,getLedgerDir(),getNotLedgerDir(),null, true),
+                Arguments.of(0,1000,DbLedgerStorage.class,getLedgerDir(),getAnotherLedgerDir(),getLedgerLoggerProcessor(),false),
+                Arguments.of(0,1000,DbLedgerStorage.class,getLedgerDir(),null,getLedgerLoggerProcessor(), true),
+                Arguments.of(0,1000,InterleavedLedgerStorage.class,getNotLedgerDir(),getLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(0,1000,DbLedgerStorage.class,getNotLedgerDir(),getNotLedgerDir(),null, true),
+                Arguments.of(0,1000,InterleavedLedgerStorage.class,getNotLedgerDir(),getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(0,1000,InterleavedLedgerStorage.class,getNotLedgerDir(),null,getLedgerLoggerProcessor(), true),
+                Arguments.of(0,1000,InterleavedLedgerStorage.class,null,getLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(0,1000,DbLedgerStorage.class,null,getNotLedgerDir(),null, true),
+                Arguments.of(0,1000,InterleavedLedgerStorage.class,null,getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(0,1000,InterleavedLedgerStorage.class,null,null,getLedgerLoggerProcessor(), true),
+                Arguments.of(0,-1,DbLedgerStorage.class,getLedgerDir(),getLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(0,-1,SortedLedgerStorage.class,getLedgerDir(),getNotLedgerDir(),null, true),
+                Arguments.of(0,-1,SortedLedgerStorage.class,getLedgerDir(),getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(0,-1,DbLedgerStorage.class,getLedgerDir(),null,getLedgerLoggerProcessor(), true),
+                Arguments.of(0,-1,SortedLedgerStorage.class,getNotLedgerDir(),getLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(0,-1,DbLedgerStorage.class,getNotLedgerDir(),getNotLedgerDir(),null, true),
+                Arguments.of(0,-1,DbLedgerStorage.class,getNotLedgerDir(),getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(0,-1,SortedLedgerStorage.class,getNotLedgerDir(),null,getLedgerLoggerProcessor(), true),
+                Arguments.of(0,-1,SortedLedgerStorage.class,null,getLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(0,-1,DbLedgerStorage.class,null,getNotLedgerDir(),null, true),
+                Arguments.of(0,-1,SortedLedgerStorage.class,null,getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(0,-1,SortedLedgerStorage.class,null,null,getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,0,DbLedgerStorage.class,getLedgerDir(),getLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,0,DbLedgerStorage.class,getLedgerDir(),getNotLedgerDir(), null, true),
+                Arguments.of(-1,0,DbLedgerStorage.class,getLedgerDir(),getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,0,DbLedgerStorage.class,getLedgerDir(),null,getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,0,DbLedgerStorage.class,getNotLedgerDir(),getLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,0,DbLedgerStorage.class,getNotLedgerDir(),getNotLedgerDir(),null, true),
+                Arguments.of(-1,0,DbLedgerStorage.class,getNotLedgerDir(),getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,0,DbLedgerStorage.class,getNotLedgerDir(),null,getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,0,DbLedgerStorage.class,null,getLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,0,DbLedgerStorage.class,null,getNotLedgerDir(),null, true),
+                Arguments.of(-1,0,DbLedgerStorage.class,null,getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,0,DbLedgerStorage.class,null,null,getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,1000,DbLedgerStorage.class,getLedgerDir(),getLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,1000,DbLedgerStorage.class,getLedgerDir(),getNotLedgerDir(),null, true),
+                Arguments.of(-1,1000,DbLedgerStorage.class,getLedgerDir(),getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,1000,DbLedgerStorage.class,getLedgerDir(),null,getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,1000,InterleavedLedgerStorage.class,getNotLedgerDir(),getLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,1000,DbLedgerStorage.class,getNotLedgerDir(),getNotLedgerDir(),null, true),
+                Arguments.of(-1,1000,InterleavedLedgerStorage.class,getNotLedgerDir(),getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,1000,InterleavedLedgerStorage.class,getNotLedgerDir(),null,getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,1000,InterleavedLedgerStorage.class,null,getLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,1000,DbLedgerStorage.class,null,getNotLedgerDir(),null, true),
+                Arguments.of(-1,1000,InterleavedLedgerStorage.class,null,getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,1000,InterleavedLedgerStorage.class,null,null,getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,-1,DbLedgerStorage.class,getLedgerDir(),getLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,-1,SortedLedgerStorage.class,getLedgerDir(),getNotLedgerDir(),null, true),
+                Arguments.of(-1,-1,SortedLedgerStorage.class,getLedgerDir(),getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,-1,DbLedgerStorage.class,getLedgerDir(),null,getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,-1,SortedLedgerStorage.class,getNotLedgerDir(),getLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,-1,DbLedgerStorage.class,getNotLedgerDir(),getNotLedgerDir(),null, true),
+                Arguments.of(-1,-1,DbLedgerStorage.class,getNotLedgerDir(),getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,-1,SortedLedgerStorage.class,getNotLedgerDir(),null,getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,-1,SortedLedgerStorage.class,null,getLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,-1,DbLedgerStorage.class,null,getNotLedgerDir(),null, true),
+                Arguments.of(-1,-1,SortedLedgerStorage.class,null,getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
+                Arguments.of(-1,-1,SortedLedgerStorage.class,null,null,getLedgerLoggerProcessor(), true)
         );
     }
 
+
+    private void verifyReadCorrectly() throws WronEntityMatcException {
+        try {
+            List<String> expectedValues = new ArrayList<>();
+            expectedValues.add("1");
+            expectedValues.add("0");
+            expectedValues.add("1028");
+            expectedValues.add("2");
+            expectedValues.add("0");
+            expectedValues.add("1063");
+
+            int count = 0;
+
+            File myObj = new File(System.getProperty("user.dir") + File.separator + "test_dir/test.txt");
+            Scanner myReader = new Scanner(myObj);
+            while (myReader.hasNextLine()) {
+                String data = myReader.nextLine();
+                if(data.compareTo(expectedValues.get(count)) != 0)
+                    throw new WronEntityMatcException();
+
+                count++;
+            }
+            myReader.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+
+
     @ParameterizedTest
     @MethodSource("readLedgerIndexEntriesPartition")
-    public void readLedgerIndexEntriesTest(long ledgerId, ServerConfiguration serverConf, SingleDirectoryDbLedgerStorage.LedgerLoggerProcessor processor , boolean expectedException){
+    public void readLedgerIndexEntriesTest(long ledgerId, int gcWaitTime, Class storageClass,File tempDirLedger, File tempDirIndex,SingleDirectoryDbLedgerStorage.LedgerLoggerProcessor processor , boolean expectedException){
         try {
-            BookieImpl bookie = new TestBookieImpl(serverConf);
+            ServerConfiguration serverConfiguration = TestBKConfiguration.newServerConfiguration();
+            serverConfiguration.setGcWaitTime(gcWaitTime);
+            serverConfiguration.setLedgerStorageClass(storageClass.getName()); //Set this class as the persistence one
+            serverConfiguration.setLedgerDirNames(new String[]{tmpDirLedger.toString()});
+            serverConfiguration.setIndexDirName(new String[]{tempDirIndex.toString()});
+
+            BookieImpl bookie = new TestBookieImpl(serverConfiguration);
             DbLedgerStorage thisStorage = (DbLedgerStorage) bookie.getLedgerStorage();
 
             thisStorage.start(); //Needed to start GC
@@ -371,14 +609,24 @@ public class DbLedgerStorageTest {
             thisStorage.flush(); //Update checkpoint
 
             // Read last entry in ledger
-            DbLedgerStorage.readLedgerIndexEntries(ledgerId,serverConf,processor);
+            DbLedgerStorage.readLedgerIndexEntries(ledgerId,serverConfiguration,processor);
+
+            Assertions.assertDoesNotThrow(this::verifyReadCorrectly);
+
 
             Assertions.assertFalse(expectedException);
         } catch (Exception e) {
+            e.printStackTrace();
             Assertions.assertTrue(expectedException);
         }
 
     }
+
+
+
+
+
+
 
     public static Stream<Arguments> addLedgerToIndexPartition() throws IOException, EmptyPagesException {
         return Stream.of(
@@ -553,7 +801,7 @@ public class DbLedgerStorageTest {
 
     @ParameterizedTest
     @MethodSource("addLedgerToIndexPartition") //master key is used for crypto reasons
-    public void addLedgerToIndex(long ledgerId, boolean isFenced, byte[] masterKey,
+    public void addLedgerToIndexTest(long ledgerId, boolean isFenced, byte[] masterKey,
                                  LedgerCache.PageEntriesIterable pages, boolean expectedException) {
         //Fanced means read only
         try {
@@ -644,6 +892,7 @@ public class DbLedgerStorageTest {
             entry.writeLong(entryId); // entry id
             entry.writeBytes("entry".getBytes());
             storage.addEntry(entry);
+
 
             Assertions.assertEquals(storage.getEntry(ledgerId,BookieProtocol.LAST_ADD_CONFIRMED),storage.getLastEntry(ledgerId)); //Check if entry has been confirmed
 

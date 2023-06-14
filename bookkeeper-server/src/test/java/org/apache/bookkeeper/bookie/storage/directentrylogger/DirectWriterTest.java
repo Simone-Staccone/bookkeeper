@@ -18,7 +18,7 @@ import java.util.stream.Stream;
 import static org.apache.bookkeeper.bookie.storage.directentrylogger.DirectEntryLogger.logFilename;
 import static org.mockito.Mockito.mock;
 
-
+//Dummy test to check configuration working
 public class DirectWriterTest extends TestCase {
     private static final Slogger slog = Slogger.CONSOLE;
     private final TmpDirs tmpDirs = new TmpDirs();

@@ -3,6 +3,7 @@ package org.apache.bookkeeper.bookie;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import org.apache.bookkeeper.bookie.storage.ldb.DbLedgerStorage;
+import org.apache.bookkeeper.bookie.storage.ldb.DbLedgerStorageTest;
 import org.apache.bookkeeper.conf.ServerConfiguration;
 import org.apache.bookkeeper.conf.TestBKConfiguration;
 import org.junit.jupiter.api.Assertions;
@@ -10,6 +11,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -22,6 +25,7 @@ import static org.mockito.Mockito.doNothing;
 
 
 public class LedgerDescriptorImplTest{
+    private static final Logger log = LoggerFactory.getLogger(DbLedgerStorageTest.class);
     private LedgerStorage ledgerStorage;
 
     public LedgerDescriptorImplTest(){
@@ -44,7 +48,7 @@ public class LedgerDescriptorImplTest{
 
 
         } catch (Exception e) {
-            System.err.println("Setup failed");
+            log.info("[ERROR] Error in set up");
         }
     }
 
