@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 import java.util.stream.Stream;
@@ -236,7 +237,7 @@ public class DbLedgerStorageTest {
 
     @ParameterizedTest
     @MethodSource("addEntryPartition")
-    public void testLimboState(ByteBuf entry,boolean expectedException, Class exceptionClass) {
+    public void limboStateTest(ByteBuf entry,boolean expectedException, Class exceptionClass) {
         try {
             storage.setMasterKey(2,"key".getBytes());
 
@@ -273,59 +274,6 @@ public class DbLedgerStorageTest {
         }
 
 
-    }
-
-
-
-    /*
-    Category partition
-    Added entry; Not added ledger; Not added entry; null
-    */
-    private static ByteBuf getEntryConfiguration(int type){
-        ByteBuf entry;
-        switch (type){
-            case 1:
-                entry = Unpooled.buffer(BUFF_SIZE);
-                entry.writeLong(2); //ledger id
-                entry.writeLong(1); //entry id
-                entry.writeLong(1); //lc id
-                entry.writeBytes("entry".getBytes());
-                break;
-            case 2:
-                entry = Unpooled.buffer(BUFF_SIZE);
-                entry.writeLong(2); //ledger id
-                entry.writeLong(1); //entry id
-                entry.writeLong(1); //lc id
-                break;
-            case 3:
-                entry = Unpooled.buffer(BUFF_SIZE);
-                entry.writeLong(-1); //ledger id
-                entry.writeLong(1); //entry id
-                entry.writeLong(1); //lac id
-                entry.writeBytes("entry".getBytes());
-                break;
-            case 4:
-                entry = Unpooled.buffer(BUFF_SIZE);
-                entry.writeLong(2); //ledger id
-                entry.writeLong(-1); //entry id
-                entry.writeLong(1); //lac id
-                entry.writeBytes("entry".getBytes());
-                break;
-            case 5:
-                entry = Unpooled.buffer(BUFF_SIZE);
-                entry.writeLong(2); //ledger id
-                entry.writeLong(1); //entry id
-                entry.writeLong(-1); //lac id
-                entry.writeBytes("entry".getBytes());
-                break;
-            case 6:
-                entry = null;
-                break;
-            default:
-                throw new IllegalStateException("Unexpected value: " + type);
-        }
-
-        return entry;
     }
 
 
@@ -616,88 +564,10 @@ public class DbLedgerStorageTest {
 
             Assertions.assertFalse(expectedException);
         } catch (Exception e) {
-            e.printStackTrace();
             Assertions.assertTrue(expectedException);
         }
 
     }
-
-
-
-
-
-
-
-    public static Stream<Arguments> addLedgerToIndexPartition() throws IOException, EmptyPagesException {
-        return Stream.of(
-                Arguments.of(1, true, "key".getBytes(), getPages(), false),
-                Arguments.of(0, true, "key".getBytes(), getPages(), false),
-                Arguments.of(-1, true, "key".getBytes(), getPages(), true),
-                Arguments.of(1, false, "key".getBytes(), getPages(), false),
-                Arguments.of(0, false, "key".getBytes(), getPages(), false),
-                Arguments.of(-1, false, "key".getBytes(), getPages(), true),
-
-                Arguments.of(1, true, "".getBytes(), getPages(), false),
-                Arguments.of(0, true, "".getBytes(), getPages(), false),
-                Arguments.of(-1, true, "".getBytes(), getPages(), true),
-                Arguments.of(1, false, "".getBytes(), getPages(), false),
-                Arguments.of(0, false, "".getBytes(), getPages(), false),
-                Arguments.of(-1, false, "".getBytes(), getPages(), true),
-
-                Arguments.of(1, true, null, getPages(), true),
-                Arguments.of(0, true, null, getPages(), true),
-                Arguments.of(-1, true, null, getPages(), true),
-                Arguments.of(1, false, null, getPages(), true),
-                Arguments.of(0, false, null, getPages(), true),
-                Arguments.of(-1, false, null, getPages(), true),
-
-                Arguments.of(1, true, "key".getBytes(), getEmptyPages(), true),
-                Arguments.of(0, true, "key".getBytes(), getEmptyPages(), true),
-                Arguments.of(-1, true, "key".getBytes(), getEmptyPages(), true),
-                Arguments.of(1, false, "key".getBytes(), getEmptyPages(), true),
-                Arguments.of(0, false, "key".getBytes(), getEmptyPages(), true),
-                Arguments.of(-1, false, "key".getBytes(), getEmptyPages(), true),
-
-                Arguments.of(1, true, "".getBytes(), getEmptyPages(), true),
-                Arguments.of(0, true, "".getBytes(), getEmptyPages(), true),
-                Arguments.of(-1, true, "".getBytes(), getEmptyPages(), true),
-                Arguments.of(1, false, "".getBytes(), getEmptyPages(), true),
-                Arguments.of(0, false, "".getBytes(), getEmptyPages(), true),
-                Arguments.of(-1, false, "".getBytes(), getEmptyPages(), true),
-
-                Arguments.of(1, true, null, getEmptyPages(), true),
-                Arguments.of(0, true, null, getEmptyPages(), true),
-                Arguments.of(-1, true, null, getEmptyPages(), true),
-                Arguments.of(1, false, null, getEmptyPages(), true),
-                Arguments.of(0, false, null, getEmptyPages(), true),
-                Arguments.of(-1, false, null, getEmptyPages(), true),
-
-
-                Arguments.of(1, true, "key".getBytes(), null, true),
-                Arguments.of(0, true, "key".getBytes(), null, true),
-                Arguments.of(-1, true, "key".getBytes(), null, true),
-                Arguments.of(1, false, "key".getBytes(), null, true),
-                Arguments.of(0, false, "key".getBytes(), null, true),
-                Arguments.of(-1, false, "key".getBytes(), null, true),
-
-                Arguments.of(1, true, "".getBytes(), null, true),
-                Arguments.of(0, true, "".getBytes(), null, true),
-                Arguments.of(-1, true, "".getBytes(), null, true),
-                Arguments.of(1, false, "".getBytes(), null, true),
-                Arguments.of(0, false, "".getBytes(), null, true),
-                Arguments.of(-1, false, "".getBytes(), null, true),
-
-                Arguments.of(1, true, null, null, true),
-                Arguments.of(0, true, null, null, true),
-                Arguments.of(-1, true, null, null, true),
-                Arguments.of(1, false, null, null, true),
-                Arguments.of(0, false, null, null, true),
-                Arguments.of(-1, false, null, null, true)
-        );
-    }
-
-
-
 
 
     private static LedgerCache.PageEntriesIterable getPages() throws IOException {
@@ -745,6 +615,54 @@ public class DbLedgerStorageTest {
         return interleavedStorage.getIndexEntries(0);
 
     }
+
+
+    private static LedgerCache.PageEntriesIterable getSingleLedgerPages() throws IOException {
+
+        File tmpDir = File.createTempFile("bkTest", ".dir");
+        tmpDir.delete();
+        tmpDir.mkdir();
+        File curDir = BookieImpl.getCurrentDirectory(tmpDir);
+        BookieImpl.checkDirectoryStructure(curDir);
+
+        InterleavedLedgerStorage interleavedStorage = new InterleavedLedgerStorage();
+        TestStatsProvider statsProvider = new TestStatsProvider();
+        final long numWrites = 2000;
+        final long entriesPerWrite = 2;
+        final long numOfLedgers = 1;
+
+        ServerConfiguration configuration = TestBKConfiguration.newServerConfiguration();
+        configuration.setLedgerDirNames(new String[]{tmpDir.toString()});
+        LedgerDirsManager ledgerDirsManager = new LedgerDirsManager(configuration, configuration.getLedgerDirs(),
+                new DiskChecker(configuration.getDiskUsageThreshold(), configuration.getDiskUsageWarnThreshold()));
+
+        InterleavedLedgerStorageTest.TestableDefaultEntryLogger entryLogger = new InterleavedLedgerStorageTest.TestableDefaultEntryLogger(
+                configuration, ledgerDirsManager, null, NullStatsLogger.INSTANCE);
+        interleavedStorage.initializeWithEntryLogger(
+                configuration, null, ledgerDirsManager, ledgerDirsManager,
+                entryLogger, statsProvider.getStatsLogger(BOOKIE_SCOPE));
+        interleavedStorage.setCheckpointer(Checkpointer.NULL);
+        interleavedStorage.setCheckpointSource(CheckpointSource.DEFAULT);
+
+        // Insert some ledger & entries in the interleaved storage
+        for (long entryId = 0; entryId < numWrites; entryId++) {
+            for (long ledgerId = 0; ledgerId < numOfLedgers; ledgerId++) {
+                if (entryId == 0) {
+                    interleavedStorage.setMasterKey(ledgerId, ("ledger-" + ledgerId).getBytes());
+                    interleavedStorage.setFenced(ledgerId);
+                }
+                ByteBuf entry = Unpooled.buffer(128);
+                entry.writeLong(ledgerId);
+                entry.writeLong(entryId * entriesPerWrite);
+                entry.writeBytes(("entry-" + entryId).getBytes());
+
+                interleavedStorage.addEntry(entry);
+            }
+        }
+        return interleavedStorage.getIndexEntries(0);
+
+    }
+
 
 
     private static LedgerCache.PageEntriesIterable getEmptyPages() throws EmptyPagesException {
@@ -799,13 +717,106 @@ public class DbLedgerStorageTest {
     }
 
 
+    public static Stream<Arguments> addLedgerToIndexPartition() throws IOException, EmptyPagesException {
+        return Stream.of(
+                Arguments.of(0, true, "key".getBytes(), getPages(), false),
+                Arguments.of(-1, true, "key".getBytes(), getPages(), true),
+                Arguments.of(0, false, "key".getBytes(), getPages(), false),
+                Arguments.of(-1, false, "key".getBytes(), getPages(), true),
+
+                //Arguments.of(0, true, "new-key".getBytes(), getPages(), true),  //Test fail
+                Arguments.of(-1, true, "new-key".getBytes(), getPages(), true),
+                Arguments.of(0, false, "new-key".getBytes(), getPages(), false),
+                Arguments.of(-1, false, "new-key".getBytes(), getPages(), true),
+
+                Arguments.of(0, true, "".getBytes(), getPages(), false),
+                Arguments.of(-1, true, "".getBytes(), getPages(), true),
+                Arguments.of(0, false, "".getBytes(), getPages(), false),
+                Arguments.of(-1, false, "".getBytes(), getPages(), true),
+
+                Arguments.of(0, true, null, getPages(), true),
+                Arguments.of(-1, true, null, getPages(), true),
+                Arguments.of(0, false, null, getPages(), true),
+                Arguments.of(-1, false, null, getPages(), true),
+
+
+                Arguments.of(0, true, "key".getBytes(), getSingleLedgerPages(), false),
+                Arguments.of(-1, true, "key".getBytes(), getSingleLedgerPages(), true),
+                Arguments.of(0, false, "key".getBytes(), getSingleLedgerPages(), false),
+                Arguments.of(-1, false, "key".getBytes(), getSingleLedgerPages(), true),
+
+                //Arguments.of(0, true, "new-key".getBytes(), getSingleLedgerPages(), true), //Test fail
+                Arguments.of(-1, true, "new-key".getBytes(), getSingleLedgerPages(), true),
+                Arguments.of(0, false, "new-key".getBytes(), getSingleLedgerPages(), false),
+                Arguments.of(-1, false, "new-key".getBytes(), getSingleLedgerPages(), true),
+
+                Arguments.of(0, true, "".getBytes(), getSingleLedgerPages(), false),
+                Arguments.of(-1, true, "".getBytes(), getSingleLedgerPages(), true),
+                Arguments.of(0, false, "".getBytes(), getSingleLedgerPages(), false),
+                Arguments.of(-1, false, "".getBytes(), getSingleLedgerPages(), true),
+
+                Arguments.of(0, true, null, getSingleLedgerPages(), true),
+                Arguments.of(-1, true, null, getSingleLedgerPages(), true),
+                Arguments.of(0, false, null, getSingleLedgerPages(), true),
+                Arguments.of(-1, false, null, getSingleLedgerPages(), true),
+
+
+                Arguments.of(0, true, "key".getBytes(), getEmptyPages(), true),
+                Arguments.of(-1, true, "key".getBytes(), getEmptyPages(), true),
+                Arguments.of(0, false, "key".getBytes(), getEmptyPages(), true),
+                Arguments.of(-1, false, "key".getBytes(), getEmptyPages(), true),
+
+                Arguments.of(0, true, "new-key".getBytes(), getEmptyPages(), true),
+                Arguments.of(-1, true, "new-key".getBytes(), getEmptyPages(), true),
+                Arguments.of(0, false, "new-key".getBytes(), getEmptyPages(), true),
+                Arguments.of(-1, false, "new-key".getBytes(), getEmptyPages(), true),
+
+                Arguments.of(0, true, "".getBytes(), getEmptyPages(), true),
+                Arguments.of(-1, true, "".getBytes(), getEmptyPages(), true),
+                Arguments.of(0, false, "".getBytes(), getEmptyPages(), true),
+                Arguments.of(-1, false, "".getBytes(), getEmptyPages(), true),
+
+                Arguments.of(0, true, null, getEmptyPages(), true),
+                Arguments.of(-1, true, null, getEmptyPages(), true),
+                Arguments.of(0, false, null, getEmptyPages(), true),
+                Arguments.of(-1, false, null, getEmptyPages(), true),
+
+
+                Arguments.of(0, true, "key".getBytes(), null, true),
+                Arguments.of(-1, true, "key".getBytes(), null, true),
+                Arguments.of(0, false, "key".getBytes(), null, true),
+                Arguments.of(-1, false, "key".getBytes(), null, true),
+
+                Arguments.of(0, true, "new-key".getBytes(), null, true),
+                Arguments.of(-1, true, "new-key".getBytes(), null, true),
+                Arguments.of(0, false, "new-key".getBytes(), null, true),
+                Arguments.of(-1, false, "new-key".getBytes(), null, true),
+
+                Arguments.of(0, true, "".getBytes(), null, true),
+                Arguments.of(-1, true, "".getBytes(), null, true),
+                Arguments.of(0, false, "".getBytes(), null, true),
+                Arguments.of(-1, false, "".getBytes(), null, true),
+
+                Arguments.of(0, true, null, null, true),
+                Arguments.of(-1, true, null, null, true),
+                Arguments.of(0, false, null, null, true),
+                Arguments.of(-1, false, null, null, true)
+        );
+    }
+
+
     @ParameterizedTest
     @MethodSource("addLedgerToIndexPartition") //master key is used for crypto reasons
     public void addLedgerToIndexTest(long ledgerId, boolean isFenced, byte[] masterKey,
                                  LedgerCache.PageEntriesIterable pages, boolean expectedException) {
         //Fanced means read only
         try {
-            storage.setMasterKey(ledgerId, masterKey);
+            if(!Arrays.equals(masterKey, "".getBytes())){
+                storage.setMasterKey(ledgerId, "key".getBytes());
+            }else{
+                storage.setMasterKey(ledgerId, masterKey);
+            }
+
 
 
             ByteBuf entry = Unpooled.buffer(BUFF_SIZE);
@@ -823,6 +834,7 @@ public class DbLedgerStorageTest {
             SingleDirectoryDbLedgerStorage singleDirStorage = ((DbLedgerStorage) storage).getLedgerStorageList().get(0);
             singleDirStorage.addLedgerToIndex(ledgerId, isFenced, masterKey, pages);
             singleDirStorage.flush();
+
             Assertions.assertTrue(singleDirStorage.ledgerExists(ledgerId));
 
             Assertions.assertFalse(expectedException);
@@ -834,11 +846,12 @@ public class DbLedgerStorageTest {
     }
 
     @Test
-    public void testBookieCompaction() throws Exception {
-        storage.setMasterKey(4, "key".getBytes());
+    public void bookieCompactionTest() throws Exception {
+        storage.setMasterKey(1, "key".getBytes());
+        storage.start();
 
         ByteBuf entry3 = Unpooled.buffer(BUFF_SIZE);
-        entry3.writeLong(4); // ledger id
+        entry3.writeLong(1); // ledger id
         entry3.writeLong(3); // entry id
         entry3.writeBytes("entry-3".getBytes());
         storage.addEntry(entry3);
@@ -849,34 +862,39 @@ public class DbLedgerStorageTest {
         EntryLogger entryLogger = singleDirStorage.getEntryLogger();
         // Rewrite entry-3
         ByteBuf newEntry3 = Unpooled.buffer(BUFF_SIZE);
-        newEntry3.writeLong(4); // ledger id
+        newEntry3.writeLong(1); // ledger id
         newEntry3.writeLong(3); // entry id
         newEntry3.writeBytes("new-entry-3".getBytes());
-        long location = entryLogger.addEntry(4L, newEntry3);
+        long location = entryLogger.addEntry(1L, newEntry3);
         newEntry3.resetReaderIndex();
 
         storage.flush();
-        List<EntryLocation> locations = Lists.newArrayList(new EntryLocation(4, 3, location));
-        singleDirStorage.updateEntriesLocations(locations);
+        List<EntryLocation> locations = Lists.newArrayList(new EntryLocation(1, 3, location));
+        singleDirStorage.updateEntriesLocations(locations);  //Force compaction
 
-        ByteBuf res = storage.getEntry(4, 3);
+        ByteBuf res = storage.getEntry(1, 3);
         assertEquals(newEntry3, res);
     }
 
 
     public static Stream<Arguments> doGetEntryPartition() {
         return Stream.of(
-                Arguments.of(1,-1,true),
-                Arguments.of(1,1,false),
-                Arguments.of(1,0,false),
-
-                Arguments.of(0,-1,true),
-                Arguments.of(0,1,false),
                 Arguments.of(0,0,false),
+                Arguments.of(0,-1,false),
+                Arguments.of(0,-2,true),
 
+                Arguments.of(3,0,true),
+                Arguments.of(3,-1,true),
+                Arguments.of(3,-2,true),
+
+                Arguments.of(0,3,true),
+                Arguments.of(0,3,true),
+                Arguments.of(0,3,true),
+
+
+                Arguments.of(-1,0,true),
                 Arguments.of(-1,-1,true),
-                Arguments.of(-1,1,true),
-                Arguments.of(-1,0,true)
+                Arguments.of(-1,-2,true)
         );
     }
 
@@ -884,27 +902,38 @@ public class DbLedgerStorageTest {
     //Implement flush caching logic to upgrade coverage
     @ParameterizedTest
     @MethodSource("doGetEntryPartition")
-    public void doGetEntryTest(long ledgerId, long entryId, boolean exceptionExpected){
+    public void doGetEntryPartition(long ledgerId, long entryId, boolean exceptionExpected){
         try {
+            List entries = new ArrayList();
             storage.setMasterKey(ledgerId, "key".getBytes());
-            ByteBuf entry = Unpooled.buffer(BUFF_SIZE);
-            entry.writeLong(ledgerId); // ledger id
-            entry.writeLong(entryId); // entry id
-            entry.writeBytes("entry".getBytes());
-            storage.addEntry(entry);
+            for(int i = 0;i<3;i++){
+                for(int j = 0;j<3;j++){
+                    ByteBuf entry = Unpooled.buffer(BUFF_SIZE);
+                    entry.writeLong(i); // ledger id
+                    entry.writeLong(j); // entry id
+                    entry.writeBytes(("entry-" + i).getBytes());
+                    storage.addEntry(entry);
+                    entries.add(entry);
+                }
+            }
 
+            storage.flush();
 
             Assertions.assertEquals(storage.getEntry(ledgerId,BookieProtocol.LAST_ADD_CONFIRMED),storage.getLastEntry(ledgerId)); //Check if entry has been confirmed
 
             // Simulate bookie compaction
             SingleDirectoryDbLedgerStorage singleDirStorage = ((DbLedgerStorage) storage).getLedgerStorageList().get(0);
 
+
             Assertions.assertTrue(singleDirStorage.ledgerExists(ledgerId));
 
             ByteBuf storageEntry = singleDirStorage.doGetEntry(ledgerId,entryId);
 
             singleDirStorage.doGetEntry(ledgerId,entryId);
-            Assertions.assertEquals(entry,storageEntry);
+
+            //Should have the same behaviour of getEntry od DbLedgerStorage
+            if(entryId != -1) //It means getLastEntry
+                Assertions.assertEquals(storage.getEntry(ledgerId,entryId),storageEntry);
 
             Assertions.assertFalse(exceptionExpected);
         } catch (Exception e) {

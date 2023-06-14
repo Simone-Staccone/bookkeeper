@@ -88,6 +88,9 @@ public class LedgerDescriptorImplTest{
             case 3: //Not initialized ledger storage
                 ledgerStorage = new DbLedgerStorage();
                 break;
+            case 4: //Not initialized ledger storage
+                ledgerStorage = null;
+                break;
             default:
                 throw new IllegalStateException("Unexpected value: " + type);
         }
@@ -98,54 +101,51 @@ public class LedgerDescriptorImplTest{
 
     public static Stream<Arguments> createPartition() {
         return Stream.of(
-                Arguments.of("masterKey".getBytes(), 1, 1,false),
-                Arguments.of("masterKey".getBytes(), 1, 2,false),
-                Arguments.of("masterKey".getBytes(), 1, 3,true),
-
-                Arguments.of("".getBytes(), 1, 1,false),
-                Arguments.of("".getBytes(), 1, 2, false),
-                Arguments.of("".getBytes(), 1, 3, true),
-
-                Arguments.of(null, 1, 1, true),
-                Arguments.of(null, 1, 2, true),
-                Arguments.of(null, 1, 3, true),
-
-
-
                 Arguments.of("masterKey".getBytes(), 0, 1,false),
                 Arguments.of("masterKey".getBytes(), 0, 2,false),
                 Arguments.of("masterKey".getBytes(), 0, 3,true),
+                Arguments.of("masterKey".getBytes(), 0, 4,true),
+
 
                 Arguments.of("".getBytes(), 0, 1,false),
                 Arguments.of("".getBytes(), 0, 2, false),
                 Arguments.of("".getBytes(), 0, 3, true),
+                Arguments.of("".getBytes(), 0, 4, true),
+
 
                 Arguments.of(null, 0, 1, true),
                 Arguments.of(null, 0, 2, true),
                 Arguments.of(null, 0, 3, true),
+                Arguments.of(null, 0, 4, true),
 
 
 
                 Arguments.of("masterKey".getBytes(), -1, 1,true),
                 Arguments.of("masterKey".getBytes(), -1, 2,false),  //If I don't add any entry I don't want to throw errors
                 Arguments.of("masterKey".getBytes(), -1, 3,true),
+                Arguments.of("masterKey".getBytes(), -1, 4,true),
+
 
                 Arguments.of("".getBytes(), -1, 1,true),
                 Arguments.of("".getBytes(), -1, 2, false),
                 Arguments.of("".getBytes(), -1, 3, true),
+                Arguments.of("".getBytes(), -1, 4, true),
+
 
                 Arguments.of(null, -1, 1, true),
                 Arguments.of(null, -1, 2, true),
-                Arguments.of(null, -1, 3, true)
+                Arguments.of(null, -1, 3, true),
+                Arguments.of(null, -1, 4, true)
 
-                );
+
+        );
     }
 
 
 
     @ParameterizedTest
     @MethodSource("createPartition")
-    public void testCreate(byte[] masterKey, long ledgerId,int ledgerConfiguration, boolean expectedException) {
+    public void createTest(byte[] masterKey, long ledgerId,int ledgerConfiguration, boolean expectedException) {
         try {
             LedgerStorage ledgerStorage = getLedgerStorageConfiguration(ledgerConfiguration,ledgerId);
 
@@ -163,6 +163,8 @@ public class LedgerDescriptorImplTest{
             ledgerDescriptor.isFenced(); //Check fenced to trigger exceptions on ledger descriptor
             Assertions.assertFalse(expectedException);
         } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println(expectedException);
             Assertions.assertTrue(expectedException);
         }
 
@@ -178,7 +180,7 @@ public class LedgerDescriptorImplTest{
 
     @ParameterizedTest
     @MethodSource("fencedPartition")
-    public void testFenced(boolean setFenced) throws IOException, BookieException {
+    public void fencedTest(boolean setFenced) throws IOException, BookieException {
         this.ledgerStorage.setMasterKey(1,"key".getBytes());
         LedgerDescriptorImpl ledgerDescriptor = new LedgerDescriptorImpl("key".getBytes(),1,this.ledgerStorage);
         ByteBuf entry = Unpooled.buffer(128);
@@ -201,10 +203,13 @@ public class LedgerDescriptorImplTest{
 
     public static Stream<Arguments> testFenceAndLogInJournalPartition() throws InterruptedException {
         return Stream.of(
-                Arguments.of(getJournalConfiguration(1),false),
-                Arguments.of(getJournalConfiguration(2),false),
-                Arguments.of(null,true)
+                Arguments.of(getJournalConfiguration(1),true,false),
+                Arguments.of(getJournalConfiguration(2),true,false),
+                Arguments.of(null,true,false),
 
+                Arguments.of(getJournalConfiguration(1),false,false),
+                Arguments.of(getJournalConfiguration(2),false,false),
+                Arguments.of(null,false,true)
         );
     }
 
@@ -238,20 +243,24 @@ public class LedgerDescriptorImplTest{
 
     @ParameterizedTest
     @MethodSource("testFenceAndLogInJournalPartition")
-    public void testFenceAndLogInJournal(Journal journal,boolean expectedException) {
+    public void fenceAndLogInJournalTest(Journal journal,boolean fenced,boolean expectedException) {
         try {
 
-            this.ledgerStorage.setMasterKey(1,"key".getBytes());
-            LedgerDescriptorImpl ledgerDescriptor = new LedgerDescriptorImpl("key".getBytes(),1,this.ledgerStorage);
+            if(fenced){
+                this.ledgerStorage.setMasterKey(1,"key".getBytes());
+                LedgerDescriptorImpl ledgerDescriptor = new LedgerDescriptorImpl("key".getBytes(),1,this.ledgerStorage);
 
-            ledgerDescriptor.setFenced();
-            Assertions.assertTrue(ledgerDescriptor.fenceAndLogInJournal(journal).isDone());
+                ledgerDescriptor.setFenced();
+                Assertions.assertTrue(ledgerDescriptor.fenceAndLogInJournal(journal).isDone());
+            }else{
+                this.ledgerStorage.setMasterKey(1,"key".getBytes());
+
+                LedgerDescriptorImpl ledgerDescriptor = new LedgerDescriptorImpl("key".getBytes(),1,this.ledgerStorage);
 
 
-            this.ledgerStorage.setMasterKey(2,"key".getBytes());
-            LedgerDescriptorImpl ledgerDescriptor2 = new LedgerDescriptorImpl("key".getBytes(),2,this.ledgerStorage);
+                Assertions.assertFalse(ledgerDescriptor.fenceAndLogInJournal(journal).isDone());
+            };
 
-            Assertions.assertFalse(ledgerDescriptor2.fenceAndLogInJournal(journal).isDone());
 
             Assertions.assertFalse(expectedException);
         } catch (NullPointerException | IOException e) {
