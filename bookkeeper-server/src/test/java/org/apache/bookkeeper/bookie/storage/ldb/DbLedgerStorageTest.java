@@ -319,9 +319,7 @@ public class DbLedgerStorageTest {
                     entries.add(entry);
                 }
             }
-
             storage.flush();
-
             storage.getEntry(ledgerId,entryId);
             Assertions.assertFalse(expectedException);
         } catch (Exception e) {
