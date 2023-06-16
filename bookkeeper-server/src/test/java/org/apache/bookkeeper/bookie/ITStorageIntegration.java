@@ -85,7 +85,7 @@ public class ITStorageIntegration {
 
         when(serverConfiguration.getLedgerDirs()).thenReturn(tmpDir.listFiles());
         when(serverConfiguration.getIndexDirs()).thenReturn(indexDir.listFiles());
-        
+
 
         when(serverConfiguration.getLedgerDirNames()).thenReturn(new String[] {tmpDir.toString()} );
         when(serverConfiguration.getIndexDirNames()).thenReturn(new String[] {indexDir.toString()} );
@@ -168,9 +168,15 @@ public class ITStorageIntegration {
             this.dbLedgerStorage.addEntry(entry);
             this.dbLedgerStorage.setMasterKey(1,"masterKey".getBytes());
 
+
+
             DbLedgerStorage storageSpy = Mockito.spy(this.dbLedgerStorage);
 
             LedgerDescriptorImpl ledgerDescriptor = new LedgerDescriptorImpl("masterKey".getBytes(),1,storageSpy);
+
+            LedgerDescriptorImpl ledgerDescriptor2 = new LedgerDescriptorImpl("masterKey".getBytes(),1,storageSpy);
+
+
 
             ByteBuf entry2 = Unpooled.buffer(BUFF_SIZE);
             entry2.writeLong(1); //Ledger id
@@ -196,6 +202,9 @@ public class ITStorageIntegration {
 
             Assertions.assertEquals(ledgerDescriptor.getLastAddConfirmed(),storageSpy.getLastAddConfirmed(1));
 
+            Assertions.assertEquals(ledgerDescriptor.getLastAddConfirmed(),ledgerDescriptor2.getLastAddConfirmed());
+
+
             ByteBuf entry3 = Unpooled.buffer(BUFF_SIZE);
             entry2.writeLong(1); //Ledger id
             entry2.writeLong(3); //Entry id
@@ -208,6 +217,8 @@ public class ITStorageIntegration {
             //After add entry when fenced dbLedgerStorage should not have last entry
             Assertions.assertThrows(Exception.class,() -> this.dbLedgerStorage.getLastEntry(1)); //Check if instance of dbLedgerStorage has set fence = true for ledger 1
 
+
+            Assertions.assertTrue(ledgerDescriptor2.isFenced());
 
         } catch (IOException | BookieException e) {
             Assertions.assertDoesNotThrow(this::ledgerDescriptorStorageTest);

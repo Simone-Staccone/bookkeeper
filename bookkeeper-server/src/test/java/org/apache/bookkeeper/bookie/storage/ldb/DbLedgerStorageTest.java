@@ -349,7 +349,7 @@ public class DbLedgerStorageTest {
             if (!file.isDirectory())
                 file.mkdir();
             file = new File(System.getProperty("user.dir") + File.separator + "test_dir" + File.separator + "test.txt");
-            if (file.exists())
+            if (!file.exists())
                 file.createNewFile();
 
 
@@ -360,6 +360,25 @@ public class DbLedgerStorageTest {
             e.printStackTrace();
         }
     }
+
+    @AfterEach
+    public void deleteTestDir() {
+        try {
+            File file = new File(System.getProperty("user.dir") + File.separator + "test_dir" + File.separator + "test.txt");
+            if (file.exists())
+                file.delete();
+
+
+            file = new File(File.separator + System.getProperty("user.dir") + File.separator + "test_dir");
+            if (file.isDirectory())
+                file.delete();
+
+
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
 
     private static void writeOnFile(long currentEntry, long entryLodId, long position) throws IOException {
         File file = new File(System.getProperty("user.dir") + File.separator + "test_dir" + File.separator + "test.txt");
