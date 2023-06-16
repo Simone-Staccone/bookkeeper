@@ -315,7 +315,7 @@ public class DbLedgerStorageTest {
                     entry.writeLong(i); // ledger id
                     entry.writeLong(j); // entry id
                     entry.writeBytes(("entry-" + i).getBytes());
-                    storage.addEntry(entry);
+                        storage.addEntry(entry);
                     entries.add(entry);
                 }
             }
@@ -323,6 +323,10 @@ public class DbLedgerStorageTest {
             storage.flush();
 
             storage.getEntry(ledgerId,entryId);
+
+
+            System.out.println(storage.getLedgerStorageList().get(0).writeCache.size());
+            System.out.println(storage.getLedgerStorageList().get(0).);
 
             Assertions.assertFalse(expectedException);
         } catch (Exception e) {
@@ -515,7 +519,7 @@ public class DbLedgerStorageTest {
                 Arguments.of(-1,-1,SortedLedgerStorage.class,null,getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
                 Arguments.of(-1,-1,SortedLedgerStorage.class,null,null,getLedgerLoggerProcessor(), true)
 
-                
+
         );
     }
 

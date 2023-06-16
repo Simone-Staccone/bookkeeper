@@ -194,7 +194,7 @@ public class LedgerDescriptorImplTest{
         entry.writeLong(1);
         entry.writeBytes("entry".getBytes());
 
-        ledgerDescriptor.addEntry(entry);
+        Assertions.assertEquals(1,ledgerDescriptor.addEntry(entry));
         Assertions.assertEquals(entry,ledgerDescriptor.readEntry(1));
 
 
