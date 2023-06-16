@@ -323,10 +323,7 @@ public class DbLedgerStorageTest {
             storage.flush();
 
             storage.getEntry(ledgerId,entryId);
-
-
-            System.out.println(storage.getLedgerStorageList().get(0).writeCache.size());
-            System.out.println(storage.getLedgerStorageList().get(0).);
+            
 
             Assertions.assertFalse(expectedException);
         } catch (Exception e) {
