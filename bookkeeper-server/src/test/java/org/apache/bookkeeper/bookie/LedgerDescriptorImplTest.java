@@ -242,8 +242,6 @@ public class LedgerDescriptorImplTest{
             default:
                 throw new IllegalStateException("Unexpected value: " + type);
         }
-
-
         return journalSpy;
     }
 
