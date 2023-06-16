@@ -514,10 +514,6 @@ public class DbLedgerStorageTest {
                 Arguments.of(-1,-1,DbLedgerStorage.class,null,getNotLedgerDir(),null, true),
                 Arguments.of(-1,-1,SortedLedgerStorage.class,null,getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
                 Arguments.of(-1,-1,SortedLedgerStorage.class,null,null,getLedgerLoggerProcessor(), true)
-
-
-
-
         );
     }
 
