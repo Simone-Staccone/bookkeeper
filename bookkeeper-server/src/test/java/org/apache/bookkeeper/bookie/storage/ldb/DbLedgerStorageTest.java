@@ -38,19 +38,20 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 import java.util.stream.Stream;
 
 import static org.apache.bookkeeper.bookie.BookKeeperServerStats.BOOKIE_SCOPE;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.intThat;
+import static org.mockito.Mockito.when;
 
 
 /**
@@ -223,12 +224,10 @@ public class DbLedgerStorageTest {
 
             Assertions.assertFalse(expectedException);
         } catch (NullPointerException | IllegalArgumentException e) {
-            e.printStackTrace();
             Assertions.assertTrue(expectedException);
 
             Assertions.assertEquals(exceptionClass,e.getClass());
         } catch (IOException | BookieException e) {
-            e.printStackTrace();
             //Error in test
             Assertions.fail();
         }
@@ -263,12 +262,21 @@ public class DbLedgerStorageTest {
 
             //Correct, shouldn't fail if limbo state set after set fenced
             Assertions.assertDoesNotThrow(() -> storage.isFenced(3));
+
+
+
+            //Added after jacoco
+            Assertions.assertTrue(storage.hasLimboState(3));
+
+            storage.clearLimboState(3);
+
+            Assertions.assertFalse(storage.hasLimboState(3));
+
         }catch (NullPointerException | IllegalArgumentException e) {
             Assertions.assertTrue(expectedException);
 
             Assertions.assertEquals(exceptionClass,e.getClass());
         } catch (IOException | BookieException e) {
-            e.printStackTrace();
             //Error in test
             Assertions.fail();
         }
@@ -334,7 +342,8 @@ public class DbLedgerStorageTest {
             try {
                 writeOnFile(currentEntry,entryLodId,position);
             } catch (IOException e) {
-                e.printStackTrace();
+                //Error in test
+                fail();
             }
         };
         //Alternative console debug
@@ -357,7 +366,7 @@ public class DbLedgerStorageTest {
             cleanWriter.print("");
             cleanWriter.close();
         }catch (Exception e){
-            e.printStackTrace();
+            fail();
         }
     }
 
@@ -375,7 +384,7 @@ public class DbLedgerStorageTest {
 
 
         }catch (Exception e){
-            e.printStackTrace();
+            fail();
         }
     }
 
@@ -447,8 +456,8 @@ public class DbLedgerStorageTest {
                 Arguments.of(0,0,DbLedgerStorage.class,null,null,getLedgerLoggerProcessor(), true),
                 Arguments.of(0,1000,DbLedgerStorage.class,getLedgerDir(),getLedgerDir(),getLedgerLoggerProcessor(), false),
                 Arguments.of(0,1000,DbLedgerStorage.class,getLedgerDir(),getNotLedgerDir(),null, true),
-                Arguments.of(0,1000,DbLedgerStorage.class,getLedgerDir(),getAnotherLedgerDir(),getLedgerLoggerProcessor(),false),
-                Arguments.of(0,1000,DbLedgerStorage.class,getLedgerDir(),null,getLedgerLoggerProcessor(), true),
+                Arguments.of(0,1000,DbLedgerStorage.class,getLedgerDir(),getAnotherLedgerDir(),getLedgerLoggerProcessor(),true),
+                Arguments.of(0,1000,DbLedgerStorage.class,getLedgerDir(),null,getLedgerLoggerProcessor(), false), //Changed after jacoco
                 Arguments.of(0,1000,InterleavedLedgerStorage.class,getNotLedgerDir(),getLedgerDir(),getLedgerLoggerProcessor(), true),
                 Arguments.of(0,1000,DbLedgerStorage.class,getNotLedgerDir(),getNotLedgerDir(),null, true),
                 Arguments.of(0,1000,InterleavedLedgerStorage.class,getNotLedgerDir(),getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
@@ -505,6 +514,10 @@ public class DbLedgerStorageTest {
                 Arguments.of(-1,-1,DbLedgerStorage.class,null,getNotLedgerDir(),null, true),
                 Arguments.of(-1,-1,SortedLedgerStorage.class,null,getAnotherLedgerDir(),getLedgerLoggerProcessor(), true),
                 Arguments.of(-1,-1,SortedLedgerStorage.class,null,null,getLedgerLoggerProcessor(), true)
+
+
+
+
         );
     }
 
@@ -532,7 +545,7 @@ public class DbLedgerStorageTest {
             }
             myReader.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            fail();
         }
 
     }
@@ -546,8 +559,19 @@ public class DbLedgerStorageTest {
             ServerConfiguration serverConfiguration = TestBKConfiguration.newServerConfiguration();
             serverConfiguration.setGcWaitTime(gcWaitTime);
             serverConfiguration.setLedgerStorageClass(storageClass.getName()); //Set this class as the persistence one
-            serverConfiguration.setLedgerDirNames(new String[]{tmpDirLedger.toString()});
-            serverConfiguration.setIndexDirName(new String[]{tempDirIndex.toString()});
+
+            //Added after Jacoco
+            if(tempDirLedger != null) {
+                serverConfiguration.setLedgerDirNames(new String[]{tempDirLedger.toString()});
+            }
+            if(tempDirIndex != null) {
+                if(tempDirIndex.getPath().contains("bkTest2")){
+                    serverConfiguration.setIndexDirName(new String[]{tempDirIndex.toString(), tempDirLedger.toString()}); //Check different sizes index and dirmanager
+                }else{
+                    serverConfiguration.setIndexDirName(new String[]{tempDirIndex.toString()});
+                }
+            }
+
 
             BookieImpl bookie = new TestBookieImpl(serverConfiguration);
             DbLedgerStorage thisStorage = (DbLedgerStorage) bookie.getLedgerStorage();
@@ -574,6 +598,7 @@ public class DbLedgerStorageTest {
             assertEquals(entry2, thisStorage.getEntry(ledgerId, 2));
 
             thisStorage.flush(); //Update checkpoint
+
 
             // Read last entry in ledger
             DbLedgerStorage.readLedgerIndexEntries(ledgerId,serverConfiguration,processor);
@@ -605,6 +630,7 @@ public class DbLedgerStorageTest {
 
         ServerConfiguration configuration = TestBKConfiguration.newServerConfiguration();
         configuration.setLedgerDirNames(new String[]{tmpDir.toString()});
+
         LedgerDirsManager ledgerDirsManager = new LedgerDirsManager(configuration, configuration.getLedgerDirs(),
                 new DiskChecker(configuration.getDiskUsageThreshold(), configuration.getDiskUsageWarnThreshold()));
 
@@ -819,8 +845,50 @@ public class DbLedgerStorageTest {
                 Arguments.of(0, true, null, null, true),
                 Arguments.of(-1, true, null, null, true),
                 Arguments.of(0, false, null, null, true),
-                Arguments.of(-1, false, null, null, true)
+                Arguments.of(-1, false, null, null, true),
+
+
+
+
+                //Added after ba-dua
+                Arguments.of(0, true, "key".getBytes(), getMockedPages(), false),
+                Arguments.of(-1, true, "key".getBytes(), getMockedPages(), true),
+                Arguments.of(0, false, "key".getBytes(), getMockedPages(), false),
+                Arguments.of(-1, false, "key".getBytes(), getMockedPages(), true),
+
+                Arguments.of(0, true, "new-key".getBytes(), getMockedPages(), false),
+                Arguments.of(-1, true, "new-key".getBytes(), getMockedPages(), true),
+                Arguments.of(0, false, "new-key".getBytes(), getMockedPages(), false),
+                Arguments.of(-1, false, "new-key".getBytes(), getMockedPages(), true),
+
+                Arguments.of(0, true, "".getBytes(), getMockedPages(), false),
+                Arguments.of(-1, true, "".getBytes(), getMockedPages(), true),
+                Arguments.of(0, false, "".getBytes(), getMockedPages(), false),
+                Arguments.of(-1, false, "".getBytes(), getMockedPages(), true),
+
+                Arguments.of(0, true, null, getMockedPages(), true),
+                Arguments.of(-1, true, null, getMockedPages(), true),
+                Arguments.of(0, false, null, getMockedPages(), true),
+                Arguments.of(-1, false, null, getMockedPages(), true)
+
         );
+    }
+
+    private static Object getMockedPages() {
+        LedgerCache.PageEntriesIterable pages = Mockito.mock(LedgerCache.PageEntriesIterable.class);
+        Iterator iterator = Mockito.mock(Iterator.class);
+        LedgerCache.PageEntries ledgerEntryPage = Mockito.mock(LedgerCache.PageEntries.class);
+
+
+        when(pages.iterator()).thenReturn(iterator);
+        when(iterator.next()).thenReturn(ledgerEntryPage);
+        try {
+            when(ledgerEntryPage.getLEP()).thenThrow(new IOException());
+        } catch (IOException e) {
+            fail();
+        }
+
+        return pages;
     }
 
 
@@ -879,6 +947,10 @@ public class DbLedgerStorageTest {
         // Simulate bookie compaction
         SingleDirectoryDbLedgerStorage singleDirStorage = ((DbLedgerStorage) storage).getLedgerStorageList().get(0);
         EntryLogger entryLogger = singleDirStorage.getEntryLogger();
+
+
+
+
         // Rewrite entry-3
         ByteBuf newEntry3 = Unpooled.buffer(BUFF_SIZE);
         newEntry3.writeLong(1); // ledger id
@@ -923,7 +995,7 @@ public class DbLedgerStorageTest {
     @MethodSource("doGetEntryPartition")
     public void doGetEntryPartition(long ledgerId, long entryId, boolean exceptionExpected){
         try {
-            List entries = new ArrayList();
+            List<ByteBuf> entries = new ArrayList();
             storage.setMasterKey(ledgerId, "key".getBytes());
             for(int i = 0;i<3;i++){
                 for(int j = 0;j<3;j++){
@@ -940,15 +1012,19 @@ public class DbLedgerStorageTest {
 
             Assertions.assertEquals(storage.getEntry(ledgerId,BookieProtocol.LAST_ADD_CONFIRMED),storage.getLastEntry(ledgerId)); //Check if entry has been confirmed
 
-            // Simulate bookie compaction
             SingleDirectoryDbLedgerStorage singleDirStorage = ((DbLedgerStorage) storage).getLedgerStorageList().get(0);
+            SingleDirectoryDbLedgerStorage singleDirStorage2 = ((DbLedgerStorage) storage).getLedgerStorageList().get(0);
 
 
             Assertions.assertTrue(singleDirStorage.ledgerExists(ledgerId));
 
             ByteBuf storageEntry = singleDirStorage.doGetEntry(ledgerId,entryId);
 
+            singleDirStorage.addEntry(entries.get((int) ledgerId));
+
             singleDirStorage.doGetEntry(ledgerId,entryId);
+            singleDirStorage2.doGetEntry(ledgerId,entryId); //Added after jacoco
+
 
             //Should have the same behaviour of getEntry od DbLedgerStorage
             if(entryId != -1) //It means getLastEntry

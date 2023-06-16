@@ -162,9 +162,15 @@ public class LedgerDescriptorImplTest{
 
             ledgerDescriptor.isFenced(); //Check fenced to trigger exceptions on ledger descriptor
             Assertions.assertFalse(expectedException);
+
+            //Added after jacoco
+            ByteBuf newEntry = Unpooled.buffer(128);
+            newEntry.writeLong(5);
+            newEntry.writeLong(1); //Entry id
+            newEntry.writeBytes("entry-example-1".getBytes());
+
+            Assertions.assertThrows(Exception.class,() -> ledgerDescriptor.addEntry(newEntry));
         } catch (Exception e) {
-            e.printStackTrace();
-            System.out.println(expectedException);
             Assertions.assertTrue(expectedException);
         }
 
@@ -248,9 +254,16 @@ public class LedgerDescriptorImplTest{
 
             if(fenced){
                 this.ledgerStorage.setMasterKey(1,"key".getBytes());
+                this.ledgerStorage.setMasterKey(2,"key".getBytes());
                 LedgerDescriptorImpl ledgerDescriptor = new LedgerDescriptorImpl("key".getBytes(),1,this.ledgerStorage);
+                LedgerDescriptorImpl ledgerDescriptor2 = new LedgerDescriptorImpl("key".getBytes(),2,this.ledgerStorage);
+
+
 
                 ledgerDescriptor.setFenced();
+                ledgerDescriptor2.setFenced(); //Added after jacoco to see concurrency
+
+
                 Assertions.assertTrue(ledgerDescriptor.fenceAndLogInJournal(journal).isDone());
             }else{
                 this.ledgerStorage.setMasterKey(1,"key".getBytes());
@@ -259,6 +272,9 @@ public class LedgerDescriptorImplTest{
 
 
                 Assertions.assertFalse(ledgerDescriptor.fenceAndLogInJournal(journal).isDone());
+
+
+
             };
 
 
