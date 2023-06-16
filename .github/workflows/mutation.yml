@@ -34,7 +34,7 @@ jobs:
       - name: Build full project
         run: mvn clean install
       - name: 'Build with Maven'
-        run: mvn -B verify --file pom.xml -pl :bookkeeper-server -P Mutation-Testing
+        run: mvn verify --file pom.xml -pl :bookkeeper-server -P Mutation-Testing
       - name: Upload report
         uses: actions/upload-artifact@v3
         with:
