@@ -600,10 +600,10 @@ public class DbLedgerStorageTest {
 
             Assertions.assertDoesNotThrow(this::verifyReadCorrectly);
 
+            System.out.println("CODEHH" + ledgerId + " " + gcWaitTime + " " + storageClass + " " + tempDirLedger + " " + tempDirIndex + " " + processor);
 
             Assertions.assertFalse(expectedException);
         } catch (Exception e) {
-            System.out.println("CODEHH" + ledgerId + " " + gcWaitTime + " " + storageClass + " " + tempDirLedger + " " + tempDirIndex + " " + processor);
             Assertions.assertTrue(expectedException);
         }
 
