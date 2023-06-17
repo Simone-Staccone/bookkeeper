@@ -249,7 +249,6 @@ public class LedgerDescriptorImplTest{
     @MethodSource("testFenceAndLogInJournalPartition")
     public void fenceAndLogInJournalTest(Journal journal,boolean fenced,boolean expectedException) {
         try {
-
             if(fenced){
                 this.ledgerStorage.setMasterKey(1,"key".getBytes());
                 this.ledgerStorage.setMasterKey(2,"key".getBytes());
