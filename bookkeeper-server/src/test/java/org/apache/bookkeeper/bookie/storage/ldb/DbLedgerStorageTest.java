@@ -607,8 +607,6 @@ public class DbLedgerStorageTest {
 
     }
 
-    
-
     private static LedgerCache.PageEntriesIterable getPages() throws IOException {
 
         File tmpDir = File.createTempFile("bkTest", ".dir");
