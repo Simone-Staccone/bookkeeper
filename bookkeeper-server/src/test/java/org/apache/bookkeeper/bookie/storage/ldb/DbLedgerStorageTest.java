@@ -603,7 +603,7 @@ public class DbLedgerStorageTest {
 
             Assertions.assertFalse(expectedException);
         } catch (Exception e) {
-            System.out.println(ledgerId + " " + gcWaitTime + " " + storageClass + " " + tempDirLedger + " " + tempDirIndex + " " + processor);
+            System.out.println("CODEHH" + ledgerId + " " + gcWaitTime + " " + storageClass + " " + tempDirLedger + " " + tempDirIndex + " " + processor);
             Assertions.assertTrue(expectedException);
         }
 
