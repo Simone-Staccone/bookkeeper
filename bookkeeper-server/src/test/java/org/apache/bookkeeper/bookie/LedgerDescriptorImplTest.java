@@ -245,6 +245,7 @@ public class LedgerDescriptorImplTest{
         return journalSpy;
     }
 
+
     @ParameterizedTest
     @MethodSource("testFenceAndLogInJournalPartition")
     public void fenceAndLogInJournalTest(Journal journal,boolean fenced,boolean expectedException) {
