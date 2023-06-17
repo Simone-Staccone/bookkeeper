@@ -599,7 +599,6 @@ public class DbLedgerStorageTest {
             DbLedgerStorage.readLedgerIndexEntries(ledgerId,serverConfiguration,processor);
 
             Assertions.assertDoesNotThrow(this::verifyReadCorrectly);
-
             System.out.println("CODEHH" + ledgerId + " " + gcWaitTime + " " + storageClass + " " + tempDirLedger + " " + tempDirIndex + " " + processor);
             Assertions.assertFalse(expectedException);
         } catch (Exception e) {
